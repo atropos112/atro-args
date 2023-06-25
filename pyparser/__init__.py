@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from pylog import get_logger
+from pylog import set_logger
 
 
 class PyParser(argparse.ArgumentParser):
@@ -9,7 +9,7 @@ class PyParser(argparse.ArgumentParser):
         if "logger" in kwargs:
             self.logger = kwargs.pop("logger")
         else:
-            self.logger = get_logger()
+            self.logger = set_logger()
         super().__init__(*args, **kwargs)
 
     def error(self, message):
