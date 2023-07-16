@@ -1,5 +1,0 @@
-argparse
-atro-pylog
-setuptools
-twine
-wheel
