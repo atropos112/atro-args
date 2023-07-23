@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -10,3 +12,4 @@ class Arg(BaseModel):
     accept_via_env: bool = True
     accept_via_cli: bool = True
     accept_via_env_file: bool = True
+    default: Any = None

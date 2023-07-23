@@ -138,7 +138,7 @@ class InputArgs(BaseModel):
             raise Exception(f"Missing required arguments: '{', '.join(missing_but_required)}'")
 
     def parse_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, Any]:
-        model: dict[str, Any] = {arg.name: None for arg in self.args}
+        model: dict[str, Any] = {arg.name: arg.default for arg in self.args}
 
         cli_args = self.get_cli_args(cli_input_args)
         env_args = self.get_env_args()
