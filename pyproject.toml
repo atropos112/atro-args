@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "atro-args"
-version = "0.0.2"
+version = "0.2.0"
 description = ""
 authors = ["atropos <sv7n@pm.me>"]
 readme = "README.md"
@@ -8,9 +8,13 @@ packages = [{include = "atro_args"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-argparse = "*"
-atro-pylog = "^0.2.1"
+pydantic = "*"
+python-dotenv = "*"
+pyyaml = "*"
 
+[tool.poetry.dev-dependencies]
+pytest = "^7.4.0"
+pytest-mock = "*"
 
 [build-system]
 requires = ["poetry-core"]

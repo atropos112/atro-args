@@ -1,13 +1,2 @@
-import argparse
-import logging
-import sys
-
-
-class PyParser(argparse.ArgumentParser):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def error(self, message):
-        logging.error(message)
-        self.print_help()
-        sys.exit(2)
+from atro_args.arg import Arg  # noqa
+from atro_args.input_args import InputArgs  # noqa
