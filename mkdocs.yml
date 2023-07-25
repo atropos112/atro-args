@@ -1,4 +1,8 @@
 site_name: AtroArgs
+
+repo_name: atropos112/atro-args 
+repo_url: https://github.com/atropos112/atro-args
+
 theme:
   name: 'material'
   logo: 'logoatro.png'
