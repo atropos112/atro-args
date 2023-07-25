@@ -171,7 +171,7 @@ class InputArgs(BaseModel):
             {'a': 1.23}
 
         Args:
-            cli_input_arsg (Sequence[str]): A list of strings representing the CLI arguments. Defaults to None which means the arguments will be read from sys.argv.
+            cli_input_args (Sequence[str]): A list of strings representing the CLI arguments. Defaults to None which means the arguments will be read from sys.argv.
 
         Returns:
             A dictionary with keys being the argument names and values being the argument values. Argument values will be of the type specified in the Arg model.
