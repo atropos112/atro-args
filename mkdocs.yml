@@ -1,6 +1,8 @@
 site_name: AtroArgs
 theme:
   name: 'material'
+  logo: 'logoatro.png'
+  favicon: 'logoatro.png'
   palette:
   - media: "(prefers-color-scheme: light)"
     scheme: default
