@@ -12,6 +12,7 @@ from pydantic import BaseModel, field_validator
 
 from atro_args.arg import Arg
 from atro_args.arg_type import ArgType
+from atro_args.helpers import load_as_py_type_from_string
 
 
 class InputArgs(BaseModel):
@@ -36,7 +37,7 @@ class InputArgs(BaseModel):
         parser = ArgumentParser()
         for arg in self.args:
             if arg.accept_via_cli:
-                parser.add_argument(f"--{arg.name}", *arg.other_names, type=arg.arg_type, help=arg.help, required=False)
+                parser.add_argument(f"--{arg.name}", *arg.other_names, type=str, help=arg.help, required=False)
 
         return vars(parser.parse_args(cli_input_args or []))
 
@@ -104,12 +105,9 @@ class InputArgs(BaseModel):
                 if type(value) == arg_type:
                     model[key] = value
                 else:
-                    logging.debug("Casting '{value}' to type '{arg_type}'")
-                    try:
-                        model[key] = arg_type(value)
-                    except Exception as e:
-                        logging.fatal(f"Could not cast '{value}' to type '{arg_type}'")
-                        raise TypeError(f"Could not cast '{value}' to type '{arg_type}'") from e
+                    logging.debug("Parsing {value} as {arg_type}.")
+                    model[key] = load_as_py_type_from_string(value, arg_type)
+
             else:
                 logging.debug(f"'{key}' has already been set.")
 
@@ -148,5 +146,4 @@ class InputArgs(BaseModel):
         populated_model = self.populated_model(model, cli_args, env_args, env_file_args, yaml_file_args)
 
         self.throw_if_required_not_populated(populated_model)
-
         return populated_model

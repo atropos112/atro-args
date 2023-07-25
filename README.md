@@ -21,6 +21,6 @@ input_args.add_arg(Arg(name="app_namespace", arg_type=str, help="App name", requ
 model = input_args.parse_args()
 ```
 
-The following model will be a dictionary `dict[str, str]` which will contain both `app_name` and `app_namespace` as keys with their respective values.
+The following model will be a dictionary `dict` which will contain both `app_name` and `app_namespace` as keys with their respective values.
 
 For more examples and more explanations please refer to the [documentation](https://args-docs.atro.xyz/).
