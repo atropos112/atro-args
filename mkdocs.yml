@@ -11,7 +11,10 @@ plugins:
       lang: en
   - mkdocstrings:
       default_handler: python
-
+      handlers:
+        python:
+          options:
+            heading_level: 2
 nav:
   - Home: index.md
   - References: references.md
