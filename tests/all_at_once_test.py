@@ -2,12 +2,12 @@ from os import environ
 from pathlib import Path
 
 from atro_args import Arg, InputArgs
-from atro_args.arg_type import ArgType
+from atro_args.arg_source import ArgSource
 
 
 def test_all_inputs_at_once(mocker):
     # Setup
-    input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"], yaml_files=[Path(__file__).parent / "test.yaml"], arg_priority=[ArgType.cli_args, ArgType.yaml_files, ArgType.envs, ArgType.env_files])
+    input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"], yaml_files=[Path(__file__).parent / "test.yaml"], arg_priority=[ArgSource.cli_args, ArgSource.yaml_files, ArgSource.envs, ArgSource.env_files])
     input_args.add_arg(Arg(name="app_name", arg_type=str, help="App name", required=True))
     input_args.add_arg(Arg(name="app_env_name", arg_type=str, help="App name", required=True))
     input_args.add_arg(Arg(name="app_env_file_name", arg_type=str, help="App name", required=True))
@@ -43,7 +43,7 @@ def test_priority(mocker):
     assert model.get("app_name") == "test_cli"
 
     # Change priority
-    arg_priority = [ArgType.envs, ArgType.cli_args, ArgType.yaml_files, ArgType.env_files]
+    arg_priority = [ArgSource.envs, ArgSource.cli_args, ArgSource.yaml_files, ArgSource.env_files]
     input_args.arg_priority = arg_priority
 
     # Create new model with new priority

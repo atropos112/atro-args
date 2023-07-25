@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, field_validator
 
 from atro_args.arg import Arg
-from atro_args.arg_type import ArgType
+from atro_args.arg_source import ArgSource
 from atro_args.helpers import load_as_py_type_from_string
 
 
@@ -20,7 +20,7 @@ class InputArgs(BaseModel):
     args: list[Arg] = []
     env_files: list[Path] = [Path(".env")]
     yaml_files: list[Path] = []
-    arg_priority: list[ArgType] = [ArgType.cli_args, ArgType.yaml_files, ArgType.envs, ArgType.env_files]
+    arg_priority: list[ArgSource] = [ArgSource.cli_args, ArgSource.yaml_files, ArgSource.envs, ArgSource.env_files]
 
     @field_validator("arg_priority")
     def arg_priority_must_be_unique_and_size_four(cls, v):
@@ -87,26 +87,31 @@ class InputArgs(BaseModel):
             output = self.merge_dicts(output, yaml_dict)
         return output
 
-    def populate_if_empty(self, model: dict[str, Any], inputs: dict[str, str], input_name: str) -> None:
+    def populate_if_empty(self, model: dict[str, Any], inputs: dict[str, str], arg_source: ArgSource) -> None:
         for key, value in inputs.items():
-            logging.debug(f"Considering key: '{key},' value: '{value}' from '{input_name}'")
+            logging.debug(f"Considering key: '{key},' value: '{value}' from '{arg_source.value}'")
 
             if key not in model:
                 logging.debug(f"'{key}' has not been requested as an argument, skipping.")
                 continue
 
             if value is None:
-                logging.debug(f"'{key}' is not populated in '{input_name}'.")
+                logging.debug(f"'{key}' is not populated in '{arg_source.value}'.")
                 continue
 
             if model.get(key) is None:
-                logging.info(f"Setting '{key}' to be of value '{value}' from '{input_name}'")
-                (arg_type,) = (arg.arg_type for arg in self.args if arg.name == key)
-                if type(value) == arg_type:
+                (arg,) = (arg for arg in self.args if arg.name == key)
+
+                if self.is_arg_source_accepted(arg, arg_source) is False:
+                    logging.debug(f"'{key}' is not accepted via '{arg_source.value}', skipping.")
+                    continue
+
+                logging.info(f"Setting '{key}' to be of value '{value}' from '{arg_source.value}'")
+                if type(value) == arg.arg_type:
                     model[key] = value
                 else:
-                    logging.debug("Parsing {value} as {arg_type}.")
-                    model[key] = load_as_py_type_from_string(value, arg_type)
+                    logging.debug("Parsing {value} as {arg.arg_type}.")
+                    model[key] = load_as_py_type_from_string(value, arg.arg_type)
 
             else:
                 logging.debug(f"'{key}' has already been set.")
@@ -114,16 +119,28 @@ class InputArgs(BaseModel):
     def populated_model(self, model: dict[str, Any], cli_args: dict[str, str], env_args: dict[str, str], env_file_args: dict[str, str], yaml_file_args: dict[str, str]) -> dict[str, Any]:
         for arg_type in self.arg_priority:
             match arg_type:
-                case ArgType.cli_args:
-                    self.populate_if_empty(model, cli_args, "cli arguments")
-                case ArgType.envs:
-                    self.populate_if_empty(model, env_args, "environment variables")
-                case ArgType.env_files:
-                    self.populate_if_empty(model, env_file_args, "environment file variables")
-                case ArgType.yaml_files:
-                    self.populate_if_empty(model, yaml_file_args, "yaml file variables")
+                case ArgSource.cli_args:
+                    self.populate_if_empty(model, cli_args, ArgSource.cli_args)
+                case ArgSource.envs:
+                    self.populate_if_empty(model, env_args, ArgSource.envs)
+                case ArgSource.env_files:
+                    self.populate_if_empty(model, env_file_args, ArgSource.env_files)
+                case ArgSource.yaml_files:
+                    self.populate_if_empty(model, yaml_file_args, ArgSource.yaml_files)
 
         return model
+
+    @staticmethod
+    def is_arg_source_accepted(arg: Arg, arg_source: ArgSource) -> bool:
+        match arg_source:
+            case ArgSource.cli_args:
+                return arg.accept_via_cli
+            case ArgSource.envs:
+                return arg.accept_via_env
+            case ArgSource.env_files:
+                return arg.accept_via_env_file
+            case ArgSource.yaml_files:
+                return arg.accept_via_yaml_file
 
     def throw_if_required_not_populated(self, model: dict[str, Any]) -> None:
         missing_but_required: list[str] = []

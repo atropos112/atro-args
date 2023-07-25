@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class ArgType(Enum):
+class ArgSource(Enum):
     cli_args = "cli_args"
     envs = "envs"
     env_files = "env_files"

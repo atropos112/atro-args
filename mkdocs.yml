@@ -5,9 +5,13 @@ theme:
     scheme: slate
     primary: teal
 
+plugins:
+  - mkdocstrings
+
 nav:
   - Home: index.md
   - About: about.md
+  - References: references.md
 
 markdown_extensions:
   - pymdownx.highlight:
