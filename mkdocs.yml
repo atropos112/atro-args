@@ -8,9 +8,7 @@ theme:
 plugins:
   - mkdocstrings:
       default_handler: python
-      handlers:
-        python:
-          paths: [atro_args]
+
 nav:
   - Home: index.md
   - About: about.md
