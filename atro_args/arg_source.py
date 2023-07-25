@@ -5,10 +5,7 @@ class ArgSource(Enum):
     """Enum for the source of an argument.
 
     Attributes:
-        cli_args : CLI arguments
-        envs: Environment arguments
-        env_files: Environment arguments from files
-        yaml_files: Yaml arguments from files
+        value (str): The value of the enum. Possible choices are "cli_args", "envs", "env_files" and "yaml_files".
     """
 
     cli_args = "cli_args"
