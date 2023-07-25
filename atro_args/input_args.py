@@ -16,7 +16,17 @@ from atro_args.helpers import load_as_py_type_from_string
 
 
 class InputArgs(BaseModel):
-    prefix: UpperCase
+    """InputArgs is a model that represents the input arguments of an application. After it is initialized the parse_args method can be called to parse the arguments and return them as a dictionary.
+
+    Attributes:
+        prefix (UpperCase): The prefix to use for environment variables. Defaults to "ATRO_ARGS". This means that the environment variable for the argument "name" will be "ATRO_ARGS_NAME" and the environment variable for the argument "other_names" will be "ATRO_ARGS_OTHER_NAMES".
+        args (list[Arg], optional): A list of arguments to parse. Defaults to [].
+        env_files (list[Path], optional): A list of paths to environment files. Defaults to [Path(".env")] which is the .env file in the directory where the application is ran from.
+        yaml_files (list[Path], optional): A list of paths to yaml files. Defaults to [].
+        arg_priority: (list[ArgSource], optional): A list of ArgSource enums that represent the priority of the arguments. Defaults to [ArgSource.cli_args, ArgSource.yaml_files, ArgSource.envs, ArgSource.env_files]. This means that if an argument is passed via CLI it will take priority over the same argument passed via a yaml file, which will take priority over the same argument passed via ENV, which will take priority over the same argument passed via an ENV file.
+    """
+
+    prefix: UpperCase = "ATRO_ARGS"
     args: list[Arg] = []
     env_files: list[Path] = [Path(".env")]
     yaml_files: list[Path] = []
@@ -24,9 +34,7 @@ class InputArgs(BaseModel):
 
     @field_validator("arg_priority")
     def arg_priority_must_be_unique_and_size_four(cls, v):
-        if len(v) != 4:
-            raise ValueError("arg_priority must be of size 4")
-        if len(set(v)) != 4:
+        if len(set(v)) != len(v):
             raise ValueError("arg_priority must be unique")
         return v
 
@@ -153,6 +161,22 @@ class InputArgs(BaseModel):
             raise Exception(f"Missing required arguments: '{', '.join(missing_but_required)}'")
 
     def parse_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, Any]:
+        """Parses the arguments and returns them as a dictionary from (potentially) multiple sources.
+
+        Examples:
+            >>> from atro_args import InputArgs, Arg
+            >>> input_arg = InputArgs()
+            >>> input_arg.add_arg(Arg(name="a", arg_type=float, help="The first addend in the addition."))
+            >>> input_arg.parse_args()
+            {'a': 1.23}
+
+        Args:
+            cli_input_arsg (Sequence[str]): A list of strings representing the CLI arguments. Defaults to None which means the arguments will be read from sys.argv.
+
+        Returns:
+            A dictionary with keys being the argument names and values being the argument values. Argument values will be of the type specified in the Arg model.
+        """
+        
         model: dict[str, Any] = {arg.name: arg.default for arg in self.args}
 
         cli_args = self.get_cli_args(cli_input_args)

@@ -1,17 +1,19 @@
-site_name: testing-shit
+site_name: AtroArgs
 theme:
   name: "material"
   palette:
     scheme: slate
     primary: teal
-
+  features:
+    - search.suggest
 plugins:
+  - search:
+      lang: en
   - mkdocstrings:
       default_handler: python
 
 nav:
   - Home: index.md
-  - About: about.md
   - References: references.md
 
 markdown_extensions:
