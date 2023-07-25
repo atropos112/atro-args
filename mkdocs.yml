@@ -1,7 +1,6 @@
 site_name: AtroArgs
 theme:
   name: 'material'
-  custom_dir: 'docs/theme'
   palette:
   - media: "(prefers-color-scheme: light)"
     scheme: default
