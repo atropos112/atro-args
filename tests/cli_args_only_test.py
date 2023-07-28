@@ -52,7 +52,7 @@ def test_wrong_type():
     cli_input_args = ["--random_number", "test"]
 
     # Create model
-    with pytest.raises(TypeError):
+    with pytest.raises(SystemExit):
         input_args.parse_args(cli_input_args=cli_input_args)
 
 

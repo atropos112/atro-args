@@ -41,11 +41,11 @@ def test_single_arg_required(mocker, provided: bool):
             input_args.parse_args()
 
 
-def test_wrong_type(mocker):
+def test_wrong_type():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"])
     input_args.add_arg(Arg(name="app_env_file_name", arg_type=int, help="App name", required=True))
 
     # Create model
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         input_args.parse_args()

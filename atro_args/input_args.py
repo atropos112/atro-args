@@ -1,6 +1,6 @@
 import logging
 from argparse import ArgumentParser
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from os import environ
 from pathlib import Path
 from typing import Any
@@ -12,7 +12,7 @@ from pydantic import BaseModel, field_validator
 
 from atro_args.arg import Arg
 from atro_args.arg_source import ArgSource
-from atro_args.helpers import load_as_py_type_from_string
+from atro_args.helpers import load_to_py_type
 
 
 class InputArgs(BaseModel):
@@ -23,7 +23,7 @@ class InputArgs(BaseModel):
         args (list[Arg], optional): A list of arguments to parse. Defaults to [].
         env_files (list[Path], optional): A list of paths to environment files. Defaults to [Path(".env")] which is the .env file in the directory where the application is ran from.
         yaml_files (list[Path], optional): A list of paths to yaml files. Defaults to [].
-        arg_priority: (list[ArgSource], optional): A list of ArgSource enums that represent the priority of the arguments. Defaults to [ArgSource.cli_args, ArgSource.yaml_files, ArgSource.envs, ArgSource.env_files]. This means that if an argument is passed via CLI it will take priority over the same argument passed via a yaml file, which will take priority over the same argument passed via ENV, which will take priority over the same argument passed via an ENV file.
+        arg_priority: (list[ArgSource], optional): A list of ArgSource enums that represent the priority of the arguments. This means that if an argument is passed via CLI it will take priority over the same argument passed via a yaml file and so on.
     """
 
     prefix: UpperCase = "ATRO_ARGS"
@@ -45,7 +45,14 @@ class InputArgs(BaseModel):
         parser = ArgumentParser()
         for arg in self.args:
             if arg.accept_via_cli:
-                parser.add_argument(f"--{arg.name}", *arg.other_names, type=str, help=arg.help, required=False)
+                # Making some adjustments
+                other_names = ["-" + name for name in arg.other_names]
+                arg_type = arg.arg_type
+                if arg_type in [Sequence, Mapping, list, dict]:
+                    # loading a json as dict or list will fail in argparse, as it will load each element char by char, bypassing that issue by loading it as a string and then converting it to the desired type
+                    arg_type = str
+
+                parser.add_argument(f"--{arg.name}", *other_names, type=arg_type, help=arg.help, required=False)
 
         return vars(parser.parse_args(cli_input_args or []))
 
@@ -115,11 +122,7 @@ class InputArgs(BaseModel):
                     continue
 
                 logging.info(f"Setting '{key}' to be of value '{value}' from '{arg_source.value}'")
-                if type(value) == arg.arg_type:
-                    model[key] = value
-                else:
-                    logging.debug("Parsing {value} as {arg.arg_type}.")
-                    model[key] = load_as_py_type_from_string(value, arg.arg_type)
+                model[key] = load_to_py_type(value, arg.arg_type)
 
             else:
                 logging.debug(f"'{key}' has already been set.")
@@ -176,7 +179,7 @@ class InputArgs(BaseModel):
         Returns:
             A dictionary with keys being the argument names and values being the argument values. Argument values will be of the type specified in the Arg model.
         """
-        
+
         model: dict[str, Any] = {arg.name: arg.default for arg in self.args}
 
         cli_args = self.get_cli_args(cli_input_args)

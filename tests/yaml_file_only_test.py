@@ -48,5 +48,5 @@ def test_wrong_type():
     input_args.add_arg(Arg(name="app_yaml_file_name", arg_type=int, help="App name", required=True))
 
     # Create model
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         input_args.parse_args()

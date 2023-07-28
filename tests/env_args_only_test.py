@@ -56,7 +56,7 @@ def test_wrong_type(mocker):
     mocker.patch.dict(environ, {"ATRO_TEST_RANDOM_NUMBER": "test"})
 
     # Create model
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError):
         input_args.parse_args()
 
 
