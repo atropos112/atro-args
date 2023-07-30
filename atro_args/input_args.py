@@ -54,7 +54,10 @@ class InputArgs(BaseModel):
 
                 parser.add_argument(f"--{arg.name}", *other_names, type=arg_type, help=arg.help, required=False)
 
-        return vars(parser.parse_args(cli_input_args or []))
+        if cli_input_args is None or len(cli_input_args) == 0:
+            return vars(parser.parse_args())
+        else:
+            return vars(parser.parse_args(cli_input_args))
 
     def get_env_args(self) -> dict[str, str]:
         envs: dict[str, str] = {}
