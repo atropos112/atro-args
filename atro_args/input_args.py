@@ -41,7 +41,7 @@ class InputArgs(BaseModel):
     def add_arg(self, arg: Arg):
         self.args.append(arg)
 
-    def get_cli_args(self, cli_input_args: Sequence[str] | None) -> dict[str, str]:
+    def get_cli_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, str]:
         parser = ArgumentParser()
         for arg in self.args:
             if arg.accept_via_cli:
@@ -53,11 +53,15 @@ class InputArgs(BaseModel):
                     arg_type = str
 
                 parser.add_argument(f"--{arg.name}", *other_names, type=arg_type, help=arg.help, required=False)
+        # Using parse_known_args instead of parse_args as parse_args throws on empty input.
+        output = vars(parser.parse_known_args(cli_input_args)[0]) or {}
 
-        if cli_input_args is None or len(cli_input_args) == 0:
-            return vars(parser.parse_args())
-        else:
-            return vars(parser.parse_args(cli_input_args))
+        for name in [arg.name for arg in self.args]:
+            # Edge case where argument has "-" in the name argparse would return this as _ instead.
+            if "-" in name and name.replace("-", "_") in output.keys() and name not in output.keys():
+                output[name] = output.pop(name.replace("-", "_"))
+
+        return output
 
     def get_env_args(self) -> dict[str, str]:
         envs: dict[str, str] = {}

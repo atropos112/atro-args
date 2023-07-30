@@ -43,6 +43,21 @@ def test_single_arg_required(provided: bool):
             input_args.parse_args(cli_input_args=cli_input_args)
 
 
+def test_single_arg_required_with_dash():
+    # Setup
+    input_args = InputArgs(prefix="ATRO_TEST")
+    input_args.add_arg(Arg(name="random-number", arg_type=int, help="App name", required=True))
+
+    # Mock cli input args
+    cli_input_args = ["--random-number", "10"]
+
+    # Assert
+    model = input_args.parse_args(cli_input_args=cli_input_args)
+    assert len(model) == 1
+    assert model.get("random-number") == 10
+    assert type(model.get("random-number")) == int
+
+
 def test_wrong_type():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST")
