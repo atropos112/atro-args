@@ -1,3 +1,5 @@
+<!--intro-start-->
+
 # Atro-Args
 
 Python package that allows one to source arguments from command line arguments, environment variables, environment files and yaml files with overwritable prioritization and decent logging.
@@ -8,7 +10,7 @@ Python package that allows one to source arguments from command line arguments, 
 pip install -U atro-args
 ```
 
-# Usage
+# Basic Example
 
 Suppose you want to obtain two variables `app_name` and `app_namespace` from cli inputs and environment variables. You can do the following:
 
@@ -23,4 +25,6 @@ model = input_args.parse_args()
 
 The following model will be a dictionary `dict` which will contain both `app_name` and `app_namespace` as keys with their respective values.
 
-For more examples and more explanations please refer to the [documentation](https://args-docs.atro.xyz/).
+<!--intro-end-->
+
+For more examples and more explanations please refer to the [documentation](https://args.atro.xyz/).

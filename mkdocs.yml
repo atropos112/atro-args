@@ -1,30 +1,31 @@
 site_name: AtroArgs
 
-repo_name: atropos112/atro-args 
+repo_name: atropos112/atro-args
 repo_url: https://github.com/atropos112/atro-args
 
 theme:
-  name: 'material'
-  logo: 'logoatro.png'
-  favicon: 'logoatro.png'
+  name: "material"
+  logo: "logoatro.png"
+  favicon: "logoatro.png"
   palette:
-  - media: "(prefers-color-scheme: light)"
-    scheme: default
-    primary: teal
-    accent: teal
-    toggle:
-      icon: material/lightbulb-outline
-      name: "Switch to dark mode"
-  - media: "(prefers-color-scheme: dark)"
-    scheme: slate
-    primary: teal
-    accent: teal
-    toggle:
-      icon: material/lightbulb
-      name: "Switch to light mode"
+    - media: "(prefers-color-scheme: light)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/lightbulb-outline
+        name: "Switch to dark mode"
+    - media: "(prefers-color-scheme: dark)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/lightbulb
+        name: "Switch to light mode"
   features:
     - search.suggest
 plugins:
+  - include-markdown
   - search:
       lang: en
   - mkdocstrings:
@@ -43,6 +44,7 @@ plugins:
 nav:
   - Home: index.md
   - References: references.md
+  - Examples: examples.md
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -52,3 +54,6 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.extra

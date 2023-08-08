@@ -38,7 +38,7 @@ class InputArgs(BaseModel):
             raise ValueError("arg_priority must be unique")
         return v
 
-    def add_arg(self, arg: Arg):
+    def add_arg(self, arg: Arg) -> None:
         self.args.append(arg)
 
     def get_cli_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, str]:
