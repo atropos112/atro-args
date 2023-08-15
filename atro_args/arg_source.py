@@ -12,3 +12,4 @@ class ArgSource(Enum):
     envs = "envs"
     env_files = "env_files"
     yaml_files = "yaml_files"
+    defaults = "defaults"

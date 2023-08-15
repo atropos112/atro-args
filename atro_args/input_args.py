@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from collections.abc import Mapping, Sequence
 from os import environ
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import yaml
 from annotated_types import UpperCase
@@ -13,6 +13,8 @@ from pydantic import BaseModel, field_validator
 from atro_args.arg import Arg
 from atro_args.arg_source import ArgSource
 from atro_args.helpers import load_to_py_type
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class InputArgs(BaseModel):
@@ -40,6 +42,10 @@ class InputArgs(BaseModel):
 
     def add_arg(self, arg: Arg) -> None:
         self.args.append(arg)
+
+    def add_args_from_pydantic_class(self, pydantic_class_type: type[BaseModel], accept_via_env: bool = True, accept_via_cli: bool = True, accept_via_env_file: bool = True, accept_via_yaml_file: bool = True) -> None:
+        for key, val in pydantic_class_type.model_fields.items():
+            self.add_arg(Arg(name=key, arg_type=val.annotation, required=val.is_required(), default=None if str(val.default) == "PydanticUndefined" else val.default, accept_via_env_file=accept_via_env_file, accept_via_cli=accept_via_cli, accept_via_yaml_file=accept_via_yaml_file, accept_via_env=accept_via_env))  # type: ignore
 
     def get_cli_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, str]:
         parser = ArgumentParser()
@@ -145,6 +151,8 @@ class InputArgs(BaseModel):
                     self.populate_if_empty(model, env_file_args, ArgSource.env_files)
                 case ArgSource.yaml_files:
                     self.populate_if_empty(model, yaml_file_args, ArgSource.yaml_files)
+                case _:
+                    self.populate_if_empty(model, {arg.name: arg.default for arg in self.args}, ArgSource.defaults)
 
         return model
 
@@ -159,6 +167,8 @@ class InputArgs(BaseModel):
                 return arg.accept_via_env_file
             case ArgSource.yaml_files:
                 return arg.accept_via_yaml_file
+            case ArgSource.defaults:
+                return True
 
     def throw_if_required_not_populated(self, model: dict[str, Any]) -> None:
         missing_but_required: list[str] = []
@@ -187,7 +197,7 @@ class InputArgs(BaseModel):
             A dictionary with keys being the argument names and values being the argument values. Argument values will be of the type specified in the Arg model.
         """
 
-        model: dict[str, Any] = {arg.name: arg.default for arg in self.args}
+        model: dict[str, Any] = {arg.name: None for arg in self.args}
 
         cli_args = self.get_cli_args(cli_input_args)
         env_args = self.get_env_args()
@@ -198,3 +208,14 @@ class InputArgs(BaseModel):
 
         self.throw_if_required_not_populated(populated_model)
         return populated_model
+
+    def parse_args_into_pydantic_class(self, pydantic_class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
+        args = self.parse_args(cli_input_args=cli_input_args)
+        model_args_required = pydantic_class_type.model_fields
+
+        output_args = {arg: args[arg] for arg in args if arg in model_args_required.keys()}
+
+        # Note the types might be incorret if user error at which point Pydantic will throw an exception.
+        myClass = pydantic_class_type(**output_args)
+
+        return myClass
