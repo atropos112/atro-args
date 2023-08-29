@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from os import environ
 from pathlib import Path
 from typing import Any, TypeVar
+import dataclasses
 
 import yaml
 from annotated_types import UpperCase
@@ -43,6 +44,9 @@ class InputArgs(BaseModel):
     def add_arg(self, arg: Arg) -> None:
         self.args.append(arg)
 
+    def add_dataclass(self, dataclass_type: type) -> None:
+        for field in dataclasses.fields(dataclass_type):
+            self.add_arg(Arg(name=field.name, arg_type=field.type))
     def add_args_from_pydantic_class(self, pydantic_class_type: type[BaseModel], accept_via_env: bool = True, accept_via_cli: bool = True, accept_via_env_file: bool = True, accept_via_yaml_file: bool = True) -> None:
         for key, val in pydantic_class_type.model_fields.items():
             self.add_arg(Arg(name=key, arg_type=val.annotation, required=val.is_required(), default=None if str(val.default) == "PydanticUndefined" else val.default, accept_via_env_file=accept_via_env_file, accept_via_cli=accept_via_cli, accept_via_yaml_file=accept_via_yaml_file, accept_via_env=accept_via_env))  # type: ignore
@@ -118,25 +122,28 @@ class InputArgs(BaseModel):
     def populate_if_empty(self, model: dict[str, Any], inputs: dict[str, str], arg_source: ArgSource) -> None:
         for key, value in inputs.items():
             logging.debug(f"Considering key: '{key},' value: '{value}' from '{arg_source.value}'")
-
+    
             if key not in model:
                 logging.debug(f"'{key}' has not been requested as an argument, skipping.")
                 continue
-
+    
             if value is None:
                 logging.debug(f"'{key}' is not populated in '{arg_source.value}'.")
                 continue
-
+    
             if model.get(key) is None:
                 (arg,) = (arg for arg in self.args if arg.name == key)
-
+    
                 if self.is_arg_source_accepted(arg, arg_source) is False:
                     logging.debug(f"'{key}' is not accepted via '{arg_source.value}', skipping.")
                     continue
-
+    
                 logging.info(f"Setting '{key}' to be of value '{value}' from '{arg_source.value}'")
-                model[key] = load_to_py_type(value, arg.arg_type)
-
+                if dataclasses.is_dataclass(arg.arg_type):
+                    model[key] = {field.name: load_to_py_type(value[field.name], field.type) for field in dataclasses.fields(arg.arg_type)}
+                else:
+                    model[key] = load_to_py_type(value, arg.arg_type)
+    
             else:
                 logging.debug(f"'{key}' has already been set.")
 
@@ -178,7 +185,7 @@ class InputArgs(BaseModel):
                 missing_but_required.append(arg.name)
 
         if len(missing_but_required) > 0:
-            raise Exception(f"Missing required arguments: '{', '.join(missing_but_required)}'")
+            raise Exception(f"Missing required arguments: {', '.join(missing_but_required)}")
 
     def parse_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, Any]:
         """Parses the arguments and returns them as a dictionary from (potentially) multiple sources.
