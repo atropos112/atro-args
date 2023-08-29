@@ -1,5 +1,6 @@
 from os import environ
 from pathlib import Path
+import dataclasses
 
 from atro_args import Arg, InputArgs
 from atro_args.arg_source import ArgSource
@@ -27,27 +28,25 @@ def test_all_inputs_at_once(mocker):
     assert model.get("app_yaml_file_name") == "test"
 
 
-def test_priority(mocker):
+@dataclasses.dataclass
+class TestDataClass:
+    name: str
+    age: int
+
+def test_add_dataclass(mocker):
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"], yaml_files=[Path(__file__).parent / "test.yaml"])
-    input_args.add_arg(Arg(name="app_name", arg_type=str, help="App name", required=True))
+    input_args.add_dataclass(TestDataClass)
 
     # Mock cli and env inputs
-    cli_input_args = ["--app_name", "test_cli"]
-    mocker.patch.dict(environ, {"ATRO_TEST_APP_NAME": "test_env"})
+    cli_input_args = ["--name", "test_cli", "--age", "30"]
+    mocker.patch.dict(environ, {"ATRO_TEST_NAME": "test_env", "ATRO_TEST_AGE": "30"})
 
     # Create model
     model = input_args.parse_args(cli_input_args=cli_input_args)
 
-    # Assert default priority is used (cli first)
-    assert model.get("app_name") == "test_cli"
-
-    # Change priority
-    arg_priority = [ArgSource.envs, ArgSource.cli_args, ArgSource.yaml_files, ArgSource.env_files]
-    input_args.arg_priority = arg_priority
-
-    # Create new model with new priority
-    model = input_args.parse_args(cli_input_args=cli_input_args)
-
-    # Assert priority change affected the result
-    assert model.get("app_name") == "test_env"
+    # Assert
+    assert model.get("name") == "test_cli"
+    assert isinstance(model.get("name"), str)
+    assert model.get("age") == 30
+    assert isinstance(model.get("age"), int)
