@@ -13,7 +13,7 @@ def test_single_arg_optional(provided: bool):
     cli_input_args = ["--app_name", "test"] if provided else []
 
     # Create model
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
 
     # Assert
     assert len(model) == 1
@@ -34,13 +34,13 @@ def test_single_arg_required(provided: bool):
 
     # Assert
     if provided:
-        model = input_args.parse_args(cli_input_args=cli_input_args)
+        model = input_args.get_dict(cli_input_args=cli_input_args)
         assert len(model) == 1
         assert model.get("random_number") == 10
         assert type(model.get("random_number")) == int
     else:
         with pytest.raises(Exception):
-            input_args.parse_args(cli_input_args=cli_input_args)
+            input_args.get_dict(cli_input_args=cli_input_args)
 
 
 def test_single_arg_required_with_dash():
@@ -52,7 +52,7 @@ def test_single_arg_required_with_dash():
     cli_input_args = ["--random-number", "10"]
 
     # Assert
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
     assert len(model) == 1
     assert model.get("random-number") == 10
     assert type(model.get("random-number")) == int
@@ -68,7 +68,7 @@ def test_wrong_type():
 
     # Create model
     with pytest.raises(SystemExit):
-        input_args.parse_args(cli_input_args=cli_input_args)
+        input_args.get_dict(cli_input_args=cli_input_args)
 
 
 @pytest.mark.parametrize("required_provided", [True, False])
@@ -88,7 +88,7 @@ def test_one_required_one_optional(required_provided: bool, optional_provided: b
 
     # Assert
     if required_provided:
-        model = input_args.parse_args(cli_input_args=cli_input_args)
+        model = input_args.get_dict(cli_input_args=cli_input_args)
         assert len(model) == 2
         if optional_provided:
             assert model.get("app_name") == "test"
@@ -99,4 +99,4 @@ def test_one_required_one_optional(required_provided: bool, optional_provided: b
         assert type(model.get("random_number")) == int
     else:
         with pytest.raises(Exception):
-            input_args.parse_args(cli_input_args=cli_input_args)
+            input_args.get_dict(cli_input_args=cli_input_args)

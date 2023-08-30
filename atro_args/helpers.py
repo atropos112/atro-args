@@ -2,6 +2,9 @@ import ast
 import json
 import logging
 from collections.abc import Mapping, Sequence
+from pathlib import Path
+
+import yaml
 
 
 def load_to_py_type(s, arg_type):
@@ -31,3 +34,18 @@ def load_to_py_type(s, arg_type):
                 raise ValueError(f"Could not load {s} as {arg_type}.")
 
     return arg_type(s)
+
+
+def load_yaml_to_dict(yaml_file: Path) -> dict:
+    with open(yaml_file) as file:
+        return yaml.safe_load(file)
+
+
+def merge_dicts(dict1: dict, dict2: dict) -> dict:
+    result = dict1.copy()
+    result.update(dict2)
+    return result
+
+
+def get_duplicates(lst: list) -> list:
+    return list({x for x in lst if lst.count(x) > 1})

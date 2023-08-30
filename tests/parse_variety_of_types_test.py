@@ -12,7 +12,7 @@ def test_list_via_cli():
     cli_input_args: list[str] = ["--some_list", "['blah', 'blah2']", "--some_list1", '["blah", "blah2"]', "--some_list2", "[]"]
 
     # Create model
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
 
     # Assert
     assert len(model) == 3
@@ -37,7 +37,7 @@ def test_dict_via_cli():
     cli_input_args: list[str] = ["--some_dict", "{'blah': 'blah2'}", "--some_dict1", '{"blah": "blah2"}', "--some_dict2", "{ }"]
 
     # Create model
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
 
     # Assert
     assert len(model) == 3
@@ -63,7 +63,7 @@ def test_basic_via_cli():
     cli_input_args: list[str] = ["--some_basic", "1", "--some_basic1", "  2  ", "--some_basic2", " true ", "--some_basic3", "hello"]
 
     # Create model
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
 
     # Assert
     assert len(model) == 4

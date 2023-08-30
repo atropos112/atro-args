@@ -20,7 +20,7 @@ input_args = InputArgs(prefix="ATRO_TEST")
 input_args.add_arg(Arg(name="app_name", arg_type=str, help="App name", required=True))
 input_args.add_arg(Arg(name="app_namespace", arg_type=str, help="App name", required=True))
 
-model = input_args.parse_args()
+model = input_args.get_dict()
 ```
 
 The following model will be a dictionary `dict` which will contain both `app_name` and `app_namespace` as keys with their respective values.

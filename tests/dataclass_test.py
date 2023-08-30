@@ -1,16 +1,17 @@
-from pydantic import BaseModel, PositiveInt
+from dataclasses import dataclass
 
 from atro_args import Arg, InputArgs
 
 
-class TestClass(BaseModel):
+@dataclass
+class TestClass:
     name: str
     surname: str
-    age: PositiveInt
+    age: int
     bozo: bool = False
 
 
-def test_populate_pydantic_class():
+def test_populate_dataclass():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST")
     input_args.add_arg(Arg(name="name", arg_type=str, help="", required=False))
@@ -22,15 +23,15 @@ def test_populate_pydantic_class():
     cli_input_args = ["--name", "test", "--surname", "alsotest", "--age", "10", "--bad_field", "19"]
 
     # Create model
-    pydantic_model: TestClass = input_args.get_cls(TestClass, cli_input_args=cli_input_args)
+    model: TestClass = input_args.get_cls(TestClass, cli_input_args=cli_input_args)
 
     # Assert
-    assert pydantic_model.name == "test"
-    assert pydantic_model.surname == "alsotest"
-    assert pydantic_model.age == 10
+    assert model.name == "test"
+    assert model.surname == "alsotest"
+    assert model.age == 10
 
 
-def test_add_args_from_pydantic_class():
+def test_add_args_from_dataclass():
     # Setup
     input_args = InputArgs()
     input_args.add_cls(TestClass)
@@ -41,7 +42,7 @@ def test_add_args_from_pydantic_class():
     assert [arg.name for arg in args] == ["name", "surname", "age", "bozo"]
 
 
-def test_add_args_and_populate_using_pydantic():
+def test_add_args_and_populate_using_dataclass():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST")
     input_args.add_cls(TestClass)
@@ -50,10 +51,10 @@ def test_add_args_and_populate_using_pydantic():
     cli_input_args = ["--name", "test", "--surname", "alsotest", "--age", "10", "--bozo", "True"]
 
     # Create model
-    pydantic_model: TestClass = input_args.get_cls(TestClass, cli_input_args=cli_input_args)
+    data_model: TestClass = input_args.get_cls(TestClass, cli_input_args=cli_input_args)
 
     # Assert
-    assert pydantic_model.name == "test"
-    assert pydantic_model.surname == "alsotest"
-    assert pydantic_model.age == 10
-    assert pydantic_model.bozo
+    assert data_model.name == "test"
+    assert data_model.surname == "alsotest"
+    assert data_model.age == 10
+    assert data_model.bozo
