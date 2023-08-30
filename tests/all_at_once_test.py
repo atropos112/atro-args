@@ -51,3 +51,46 @@ def test_priority(mocker):
 
     # Assert priority change affected the result
     assert model.get("app_name") == "test_env"
+
+@dataclass
+class TestConfig:
+    app_name: str
+    app_env_name: str
+    app_env_file_name: str
+    app_yaml_file_name: str
+
+def test_add_dataclass(mocker):
+    # Setup
+    input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"], yaml_files=[Path(__file__).parent / "test.yaml"])
+    input_args.add_dataclass(TestConfig)
+
+    # Mock cli and env inputs
+    cli_input_args = ["--app_name", "test_cli"]
+    mocker.patch.dict(environ, {"ATRO_TEST_APP_ENV_NAME": "test_env"})
+
+    # Create model
+    model = input_args.parse_args(cli_input_args=cli_input_args)
+
+    # Assert
+    assert model.get("app_name") == "test_cli"
+    assert model.get("app_env_name") == "test_env"
+    assert model.get("app_env_file_name") == "test"
+    assert model.get("app_yaml_file_name") == "test"
+
+def test_fill(mocker):
+    # Setup
+    input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"], yaml_files=[Path(__file__).parent / "test.yaml"])
+    input_args.add_dataclass(TestConfig)
+
+    # Mock cli and env inputs
+    cli_input_args = ["--app_name", "test_cli"]
+    mocker.patch.dict(environ, {"ATRO_TEST_APP_ENV_NAME": "test_env"})
+
+    # Create model
+    model = input_args.fill(TestConfig, cli_input_args=cli_input_args)
+
+    # Assert
+    assert model.app_name == "test_cli"
+    assert model.app_env_name == "test_env"
+    assert model.app_env_file_name == "test"
+    assert model.app_yaml_file_name == "test"
