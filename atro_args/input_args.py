@@ -12,7 +12,7 @@ from pydantic import BaseModel, model_validator
 
 from atro_args.arg import Arg
 from atro_args.arg_source import ArgSource
-from atro_args.helpers import get_duplicates, load_to_py_type, load_yaml_to_dict, merge_dicts
+from atro_args.helpers import get_duplicates, load_to_py_type, load_yaml_to_dict
 
 T = TypeVar("T")
 
@@ -23,28 +23,24 @@ class InputArgs(BaseModel):
     Attributes:
         prefix (UpperCase): The prefix to use for environment variables. Defaults to "ATRO_ARGS". This means that the environment variable for the argument "name" will be "ATRO_ARGS_NAME" and the environment variable for the argument "other_names" will be "ATRO_ARGS_OTHER_NAMES".
         args (list[Arg], optional): A list of arguments to parse. Defaults to [].
-        env_files (list[Path], optional): A list of paths to environment files. Defaults to [Path(".env")] which is the .env file in the directory where the application is ran from.
-        yaml_files (list[Path], optional): A list of paths to yaml files. Defaults to [].
-        arg_priority: (list[ArgSource], optional): A list of ArgSource enums that represent the priority of the arguments. This means that if an argument is passed via CLI it will take priority over the same argument passed via a yaml file and so on.
+        sources: (list[ArgSource], optional): A list of ArgSource enums or paths that represent sources to source arguments from. Defaults to [ArgSource.cli_args, Path(".env"), ArgSource.envs]. Order decides the priority in which the arguments are sourced. For example if cli_args is before envs then cli_args will have priority over envs.
     """
 
     prefix: UpperCase = "ATRO_ARGS"
     args: list[Arg] = []
-    env_files: list[Path] = [Path(".env")]
-    yaml_files: list[Path] = []
-    arg_priority: list[ArgSource] = [ArgSource.cli_args, ArgSource.yaml_files, ArgSource.envs, ArgSource.env_files]
+    sources: list[ArgSource | Path] = [ArgSource.cli_args, Path(".env"), ArgSource.envs]
 
     # region Validators
     @model_validator(mode="after")
     def validate_model(self) -> "InputArgs":
-        self.validate_arg_priority()
+        self.validate_sources()
         self.validate_args()
         return self
 
-    def validate_arg_priority(self):
-        if len(set(self.arg_priority)) != len(self.arg_priority):
-            dupes = get_duplicates(self.arg_priority)
-            raise ValueError("The elements of list arg_priority must be unique. The following elements are duplicated: " + ", ".join(dupes) + ".")
+    def validate_sources(self):
+        if len(set(self.sources)) != len(self.sources):
+            dupes = get_duplicates(self.sources)
+            raise ValueError("The elements of list sources must be unique. The following elements are duplicated: " + ", ".join(dupes) + ".")
 
     def validate_args(self):
         names = [arg.name for arg in self.args]
@@ -54,9 +50,30 @@ class InputArgs(BaseModel):
 
     # endregion
 
+    # region Including sources
+    def set_sources(self, sources: list[ArgSource | Path]) -> None:
+        self.sources = []
+        self.include_sources(sources)
+
+    def set_source(self, source: ArgSource | Path) -> None:
+        self.set_sources([source])
+
+    def include_sources(self, sources: list[ArgSource | Path]) -> None:
+        self.sources.extend(sources)
+        self.validate_sources()
+
+    def include_source(self, source: ArgSource | Path) -> None:
+        self.include_sources([source])
+
+    def include(self, source: ArgSource | Path) -> None:
+        self.include_source(source)
+
+    # endregion
+
     # region Adding arguments
     def add_arg(self, arg: Arg) -> None:
-        self.args.append(arg)
+        if arg.name not in [argument.name for argument in self.args]:
+            self.args.append(arg)
         self.validate_args()
 
     def add_args(self, args: list[Arg]) -> None:
@@ -65,7 +82,7 @@ class InputArgs(BaseModel):
         self.validate_args()
 
     def add(self, name: str, other_names: str | list[str] = [], arg_type: type = str, help: str = "", required: bool = True, default: Any = None):
-        self.args.append(Arg(name=name, other_names=other_names, arg_type=arg_type, help=help, required=required, default=default))
+        self.add_arg(Arg(name=name, other_names=other_names, arg_type=arg_type, help=help, required=required, default=default))
         self.validate_args()
 
     def add_cls(self, class_type: type) -> None:
@@ -96,23 +113,45 @@ class InputArgs(BaseModel):
 
         model: dict[str, Any] = {arg.name: None for arg in self.args}
 
-        cli_args = self.__get_cli_args(cli_input_args)
-        env_args = self.__get_env_args()
-        env_file_args = self.__get_env_file_args()
-        yaml_file_args = self.__get_yaml_file_args()
+        for source in self.sources:
+            args = {}
+            if source == ArgSource.cli_args:
+                args = self.__get_cli_args(cli_input_args)
+            elif source == ArgSource.envs:
+                args = self.__get_env_args()
+            elif isinstance(source, ArgSource):
+                raise Exception(f"Developer Error: Assumed all the ArgSources were accounted for but '{source}' wasn't.")
+            elif isinstance(source, Path):
+                match source.name.split(".")[-1]:  # source.suffix would not work here as .env would map to empty string
+                    case "env":
+                        args = self.__get_env_file_args(source)
+                    case "yaml" | "yml":
+                        args = self.__get_yaml_file_args(source)
+                    case _:
+                        raise Exception(f"File type '{source.suffix}' is not supported.")
 
-        populated_model = self.__populated_model(model, cli_args, env_args, env_file_args, yaml_file_args)
+            self.__populate_if_empty(model, args, source.value if isinstance(source, ArgSource) else source.as_posix())
 
-        self.__throw_if_required_not_populated(populated_model)
-        return populated_model
+        self.__populate_if_empty(model, {arg.name: arg.default for arg in self.args}, "defaults")
+        self.__throw_if_required_not_populated(model)
+
+        return model
 
     def get_cls(self, class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
         if is_dataclass(class_type):
-            return self.__get_dataclass(class_type, cli_input_args=cli_input_args)
+            return self.__get_dataclass(class_type, cli_input_args=cli_input_args)  # type: ignore
         elif issubclass(class_type, BaseModel):
-            return self.__get_pydantic(class_type, cli_input_args=cli_input_args)
+            return self.__get_pydantic(class_type, cli_input_args=cli_input_args)  # type: ignore
         else:
             raise Exception(f"Class type '{class_type}' is not supported.")
+
+    # endregion
+
+    # region popluate
+
+    def populate_cls(self, class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
+        self.add_cls(class_type)
+        return self.get_cls(class_type, cli_input_args=cli_input_args)
 
     # endregion
 
@@ -131,12 +170,12 @@ class InputArgs(BaseModel):
             raise Exception(f"Developer error: '{dataclass_type}' is not a dataclass and so it shouldn't call __get_dataclass.")
         model_args_required = dataclass_type.__dataclass_fields__
 
-        return self.__get_cls_setup(dataclass_type, model_args_required, cli_input_args=cli_input_args)
+        return self.__get_cls_setup(dataclass_type, model_args_required, cli_input_args=cli_input_args)  # type: ignore
 
     def __get_pydantic(self, pydantic_class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
         if not issubclass(pydantic_class_type, BaseModel):
             raise Exception(f"Developer error: '{pydantic_class_type}' is not a subclass of 'BaseModel' and so it shouldn't call __get_pydantic.")
-        model_args_required = pydantic_class_type.model_fields
+        model_args_required = pydantic_class_type.model_fields  # type: ignore
 
         return self.__get_cls_setup(pydantic_class_type, model_args_required, cli_input_args=cli_input_args)
 
@@ -145,7 +184,7 @@ class InputArgs(BaseModel):
         output_args = {arg: args[arg] for arg in args if arg in model_args_required.keys()}
 
         # Note the types might be incorret if user error at which point Pydantic will throw an exception.
-        myClass = cls(**output_args)
+        myClass: T = cls(**output_args)
 
         return myClass
 
@@ -178,7 +217,7 @@ class InputArgs(BaseModel):
                 envs[arg.name] = env
         return envs
 
-    def __get_env_file_args(self) -> dict[str, str]:
+    def __get_env_file_args(self, path: Path) -> dict[str, str]:
         # Remove any existing envs
         # Load envs from file
         # Get envs
@@ -188,8 +227,7 @@ class InputArgs(BaseModel):
         copy_current_envs = environ.copy()
 
         environ.clear()
-        for env_file in self.env_files:
-            load_dotenv(dotenv_path=env_file)
+        load_dotenv(dotenv_path=path)
         envs = self.__get_env_args()
         environ.clear()
 
@@ -197,50 +235,29 @@ class InputArgs(BaseModel):
 
         return envs
 
-    def __get_yaml_file_args(self):
-        file_paths = self.yaml_files
-        output = {}
-        for file_path in file_paths:
-            yaml_dict = load_yaml_to_dict(file_path)
-            output = merge_dicts(output, yaml_dict)
-        return output
+    def __get_yaml_file_args(self, path: Path) -> dict[str, str]:
+        return load_yaml_to_dict(path)
 
-    def __populate_if_empty(self, model: dict[str, Any], inputs: dict[str, str], arg_source: ArgSource) -> None:
+    def __populate_if_empty(self, model: dict[str, Any], inputs: dict[str, str], source: str) -> None:
         for key, value in inputs.items():
-            logging.debug(f"Considering key: '{key},' value: '{value}' from '{arg_source.value}'")
+            logging.debug(f"Considering key: '{key},' value: '{value}' from '{source}'")
 
             if key not in model:
                 logging.debug(f"'{key}' has not been requested as an argument, skipping.")
                 continue
 
             if value is None:
-                logging.debug(f"'{key}' is not populated in '{arg_source.value}'.")
+                logging.debug(f"'{key}' is not populated in '{source}'.")
                 continue
 
             if model.get(key) is None:
                 (arg,) = (arg for arg in self.args if arg.name == key)
 
-                logging.info(f"Setting '{key}' to be of value '{value}' from '{arg_source.value}'")
+                logging.info(f"Setting '{key}' to be of value '{value}' from '{source}'")
                 model[key] = load_to_py_type(value, arg.arg_type)
 
             else:
                 logging.debug(f"'{key}' has already been set.")
-
-    def __populated_model(self, model: dict[str, Any], cli_args: dict[str, str], env_args: dict[str, str], env_file_args: dict[str, str], yaml_file_args: dict[str, str]) -> dict[str, Any]:
-        for arg_type in self.arg_priority:
-            match arg_type:
-                case ArgSource.cli_args:
-                    self.__populate_if_empty(model, cli_args, ArgSource.cli_args)
-                case ArgSource.envs:
-                    self.__populate_if_empty(model, env_args, ArgSource.envs)
-                case ArgSource.env_files:
-                    self.__populate_if_empty(model, env_file_args, ArgSource.env_files)
-                case ArgSource.yaml_files:
-                    self.__populate_if_empty(model, yaml_file_args, ArgSource.yaml_files)
-                case _:
-                    self.__populate_if_empty(model, {arg.name: arg.default for arg in self.args}, ArgSource.defaults)
-
-        return model
 
     def __throw_if_required_not_populated(self, model: dict[str, Any]) -> None:
         missing_but_required: list[str] = []

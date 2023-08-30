@@ -8,8 +8,9 @@ from atro_args import Arg, InputArgs
 @pytest.mark.parametrize("provided", [True, False])
 def test_single_arg_optional(provided: bool):
     # Setup
-    env_files: list[Path] = [Path(__file__).parent / ".env"] if provided else []
-    input_args = InputArgs(prefix="ATRO_TEST", env_files=env_files)
+    input_args = InputArgs(prefix="ATRO_TEST")
+    if provided:
+        input_args.include(Path(__file__).parent / ".env")
     input_args.add_arg(Arg(name="app_env_file_name", arg_type=str, help="App name", required=False))
 
     # Create model
@@ -26,8 +27,9 @@ def test_single_arg_optional(provided: bool):
 @pytest.mark.parametrize("provided", [True, False])
 def test_single_arg_required(mocker, provided: bool):
     # Setup
-    env_files: list[Path] = [Path(__file__).parent / ".env"] if provided else []
-    input_args = InputArgs(prefix="ATRO_TEST", env_files=env_files)
+    input_args = InputArgs(prefix="ATRO_TEST")
+    if provided:
+        input_args.include(Path(__file__).parent / ".env")
     input_args.add_arg(Arg(name="random_env_file_number", arg_type=int, help="App name", required=True))
 
     # Assert
@@ -43,7 +45,8 @@ def test_single_arg_required(mocker, provided: bool):
 
 def test_wrong_type():
     # Setup
-    input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"])
+    input_args = InputArgs(prefix="ATRO_TEST")
+    input_args.include(Path(__file__).parent / ".env")
     input_args.add_arg(Arg(name="app_env_file_name", arg_type=int, help="App name", required=True))
 
     # Create model

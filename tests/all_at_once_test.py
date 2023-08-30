@@ -7,7 +7,7 @@ from atro_args.arg_source import ArgSource
 
 def test_all_inputs_at_once(mocker):
     # Setup
-    input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"], yaml_files=[Path(__file__).parent / "test.yaml"], arg_priority=[ArgSource.cli_args, ArgSource.yaml_files, ArgSource.envs, ArgSource.env_files])
+    input_args = InputArgs(prefix="ATRO_TEST", sources=[ArgSource.cli_args, Path(__file__).parent / "test.yaml", ArgSource.envs, Path(__file__).parent / ".env"])
     input_args.add_arg(Arg(name="app_name", arg_type=str, help="App name", required=True))
     input_args.add_arg(Arg(name="app_env_name", arg_type=str, help="App name", required=True))
     input_args.add_arg(Arg(name="app_env_file_name", arg_type=str, help="App name", required=True))
@@ -29,7 +29,15 @@ def test_all_inputs_at_once(mocker):
 
 def test_priority(mocker):
     # Setup
-    input_args = InputArgs(prefix="ATRO_TEST", env_files=[Path(__file__).parent / ".env"], yaml_files=[Path(__file__).parent / "test.yaml"])
+    input_args = InputArgs(
+        prefix="ATRO_TEST",
+        sources=[
+            ArgSource.cli_args,
+            Path(__file__).parent / "test.yaml",
+            ArgSource.envs,
+            Path(__file__).parent / ".env",
+        ],
+    )
     input_args.add_arg(Arg(name="app_name", arg_type=str, help="App name", required=True))
 
     # Mock cli and env inputs
@@ -43,8 +51,8 @@ def test_priority(mocker):
     assert model.get("app_name") == "test_cli"
 
     # Change priority
-    arg_priority = [ArgSource.envs, ArgSource.cli_args, ArgSource.yaml_files, ArgSource.env_files]
-    input_args.arg_priority = arg_priority
+    sources = [ArgSource.envs, ArgSource.cli_args, Path(__file__).parent / "test.yaml", Path(__file__).parent / ".env"]
+    input_args.sources = sources
 
     # Create new model with new priority
     model = input_args.get_dict(cli_input_args=cli_input_args)
