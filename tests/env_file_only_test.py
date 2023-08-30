@@ -13,7 +13,7 @@ def test_single_arg_optional(provided: bool):
     input_args.add_arg(Arg(name="app_env_file_name", arg_type=str, help="App name", required=False))
 
     # Create model
-    model = input_args.parse_args()
+    model = input_args.get_dict()
 
     # Assert
     assert len(model) == 1
@@ -32,13 +32,13 @@ def test_single_arg_required(mocker, provided: bool):
 
     # Assert
     if provided:
-        model = input_args.parse_args()
+        model = input_args.get_dict()
         assert len(model) == 1
         assert model.get("random_env_file_number") == 10
         assert type(model.get("random_env_file_number")) == int
     else:
         with pytest.raises(Exception):
-            input_args.parse_args()
+            input_args.get_dict()
 
 
 def test_wrong_type():
@@ -48,4 +48,4 @@ def test_wrong_type():
 
     # Create model
     with pytest.raises(ValueError):
-        input_args.parse_args()
+        input_args.get_dict()

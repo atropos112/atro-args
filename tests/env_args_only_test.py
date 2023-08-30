@@ -16,7 +16,7 @@ def test_single_arg_optional(mocker, provided: bool):
         mocker.patch.dict(environ, {"ATRO_TEST_APP_NAME": "test"})
 
     # Create model
-    model = input_args.parse_args()
+    model = input_args.get_dict()
 
     # Assert
     assert len(model) == 1
@@ -38,13 +38,13 @@ def test_single_arg_required(mocker, provided: bool):
 
     # Assert
     if provided:
-        model = input_args.parse_args()
+        model = input_args.get_dict()
         assert len(model) == 1
         assert model.get("random_number") == 10
         assert type(model.get("random_number")) == int
     else:
         with pytest.raises(Exception):
-            input_args.parse_args()
+            input_args.get_dict()
 
 
 def test_wrong_type(mocker):
@@ -57,7 +57,7 @@ def test_wrong_type(mocker):
 
     # Create model
     with pytest.raises(ValueError):
-        input_args.parse_args()
+        input_args.get_dict()
 
 
 @pytest.mark.parametrize("required_provided", [True, False])
@@ -76,7 +76,7 @@ def test_one_required_one_optional(mocker, required_provided: bool, optional_pro
 
     # Assert
     if required_provided:
-        model = input_args.parse_args()
+        model = input_args.get_dict()
         assert len(model) == 2
         if optional_provided:
             assert model.get("app_name") == "test"
@@ -87,4 +87,4 @@ def test_one_required_one_optional(mocker, required_provided: bool, optional_pro
         assert type(model.get("random_number")) == int
     else:
         with pytest.raises(Exception):
-            input_args.parse_args()
+            input_args.get_dict()

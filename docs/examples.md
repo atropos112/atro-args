@@ -20,7 +20,7 @@ input_args.add_arg(Arg(name="random_number", arg_type=int, help="Just some rando
 input_args.add_arg(Arg(name="app_name", arg_type=str, help="App name", required=True))
 
 # Obtain the model (of type dict[str, Any])
-model = input_args.parse_args()
+model = input_args.get_dict()
 
 # Show that indeed we have the correct values
 assert type(model.get("app_name")) == str
@@ -42,7 +42,7 @@ input_args = InputArgs()
 input_args.add_arg(Arg(name="random-number", arg_type=int, help="Just some random number", required=True))
 
 # Show that indeed we have the correct values
-model = input_args.parse_args()
+model = input_args.get_dict()
 
 print(model.get("random-number"))
 if model.get("random-number"):
@@ -83,7 +83,7 @@ input_args = InputArgs(prefix="ATRO_TEST", env_files=env_files)
 input_args.add_arg(Arg(name="app_env_file_name", arg_type=str, help="App name", required=False))
 
 # Create model
-model = input_args.parse_args()
+model = input_args.get_dict()
 
 assert model.get("app_env_file_name") == "test"
 ```
@@ -107,7 +107,7 @@ input_args = InputArgs(prefix="ATRO_TEST", yaml_files=yaml_files)
 input_args.add_arg(Arg(name="app_yaml_file_name", arg_type=str, help="App name", required=False))
 
 # Create model
-model = input_args.parse_args()
+model = input_args.get_dict()
 
 # Assert
 assert model.get("app_yaml_file_name") == "test"

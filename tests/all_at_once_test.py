@@ -18,7 +18,7 @@ def test_all_inputs_at_once(mocker):
     mocker.patch.dict(environ, {"ATRO_TEST_APP_ENV_NAME": "test_env"})
 
     # Create model
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
 
     # Assert
     assert model.get("app_name") == "test_cli"
@@ -37,7 +37,7 @@ def test_priority(mocker):
     mocker.patch.dict(environ, {"ATRO_TEST_APP_NAME": "test_env"})
 
     # Create model
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
 
     # Assert default priority is used (cli first)
     assert model.get("app_name") == "test_cli"
@@ -47,7 +47,7 @@ def test_priority(mocker):
     input_args.arg_priority = arg_priority
 
     # Create new model with new priority
-    model = input_args.parse_args(cli_input_args=cli_input_args)
+    model = input_args.get_dict(cli_input_args=cli_input_args)
 
     # Assert priority change affected the result
     assert model.get("app_name") == "test_env"
