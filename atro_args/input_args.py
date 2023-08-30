@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from os import environ
 from pathlib import Path
 from typing import Any, TypeVar
+import dataclasses
 
 import yaml
 from annotated_types import UpperCase
@@ -46,6 +47,10 @@ class InputArgs(BaseModel):
     def add_args_from_pydantic_class(self, pydantic_class_type: type[BaseModel], accept_via_env: bool = True, accept_via_cli: bool = True, accept_via_env_file: bool = True, accept_via_yaml_file: bool = True) -> None:
         for key, val in pydantic_class_type.model_fields.items():
             self.add_arg(Arg(name=key, arg_type=val.annotation, required=val.is_required(), default=None if str(val.default) == "PydanticUndefined" else val.default, accept_via_env_file=accept_via_env_file, accept_via_cli=accept_via_cli, accept_via_yaml_file=accept_via_yaml_file, accept_via_env=accept_via_env))  # type: ignore
+    
+    def add_dataclass(self, dataclass_type: type) -> None:
+        for field in dataclasses.fields(dataclass_type):
+            self.add_arg(Arg(name=field.name, arg_type=field.type))
 
     def get_cli_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, str]:
         parser = ArgumentParser()
@@ -135,7 +140,10 @@ class InputArgs(BaseModel):
                     continue
 
                 logging.info(f"Setting '{key}' to be of value '{value}' from '{arg_source.value}'")
-                model[key] = load_to_py_type(value, arg.arg_type)
+                if dataclasses.is_dataclass(arg.arg_type):
+                    model[key] = arg.arg_type(**value)
+                else:
+                    model[key] = load_to_py_type(value, arg.arg_type)
 
             else:
                 logging.debug(f"'{key}' has already been set.")
@@ -219,3 +227,7 @@ class InputArgs(BaseModel):
         myClass = pydantic_class_type(**output_args)
 
         return myClass
+
+    def fill(self, dataclass_type: type) -> Any:
+        args = self.parse_args()
+        return dataclass_type(**args)
