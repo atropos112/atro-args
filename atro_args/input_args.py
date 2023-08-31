@@ -106,7 +106,7 @@ class InputArgs(BaseModel):
             {'a': 1.23}
 
         Args:
-            cli_input_args (Sequence[str]): A list of strings representing the CLI arguments. Defaults to None which means the arguments will be read from sys.argv.
+            cli_input_args (Sequence[str]): A list of strings representing the CLI arguments. Defaults to None which means the arguments will be read from sys.argv which is almost always the desired behaviour.
 
         Returns:
             A dictionary with keys being the argument names and values being the argument values. Argument values will be of the type specified in the Arg model.
@@ -139,6 +139,23 @@ class InputArgs(BaseModel):
         return model
 
     def get_cls(self, class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
+        """Parses the arguments and returns them as an instance of the given class with the data populated from (potentially) multiple sources.
+
+        Examples:
+            >>> input_args = InputArgs(prefix="ATRO_TEST")
+            >>> input_args.set_source(Path(__file__).parent / ".env")
+            >>> resp = input_args.add_cls(TestClassWithUnionType)
+            >>> resp = input_args.get_cls(TestClassWithUnionType)
+            >>> resp.random_env_file_number
+            10
+
+        Args:
+            class_type (type): Either a pydantic class or dataclass that we want to populate. Note the arguments have to be added before for this to work, either by .add_cls or by adding arguments one by one.
+            cli_input_args (Sequence[str]): A list of strings representing the CLI arguments. Defaults to None which means the arguments will be read from sys.argv which is almost always the desired behaviour.
+
+        Returns:
+            Instance of the class provided with the fielids populated from potentially multiple sources.
+        """
         if is_dataclass(class_type):
             return self.__get_dataclass(class_type, cli_input_args=cli_input_args)  # type: ignore
         elif issubclass(class_type, BaseModel):
@@ -151,10 +168,29 @@ class InputArgs(BaseModel):
     # region popluate
 
     def populate_cls(self, class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
+        """Parses the arguments and returns them as an instance of the given class with the data populated from (potentially) multiple sources.
+
+        Examples:
+            >>> input_args = InputArgs(prefix="ATRO_TEST")
+            >>> input_args.set_source(Path(__file__).parent / ".env")
+            >>> resp = input_args.populate_cls(TestClassWithUnionType)
+            >>> resp.random_env_file_number
+            10
+
+        Args:
+            class_type (type): Either a pydantic class or dataclass that we want to populate.
+            cli_input_args (Sequence[str]): A list of strings representing the CLI arguments. Defaults to None which means the arguments will be read from sys.argv which is almost always the desired behaviour.
+
+        Returns:
+            Instance of the class provided with the fielids populated from potentially multiple sources.
+        """
         self.add_cls(class_type)
         return self.get_cls(class_type, cli_input_args=cli_input_args)
 
     # endregion
+
+    # region "Private" methods
+
     @staticmethod
     def __account_for_union_type(default_required: bool, possibly_union_type: type | None) -> tuple[bool, type]:
         required = default_required
@@ -173,7 +209,6 @@ class InputArgs(BaseModel):
 
         return required, arg_type
 
-    # region "Private" methods
     def __add_pydantic(self, pydantic_class_type: type[BaseModel]) -> None:
         for key, val in pydantic_class_type.model_fields.items():
             required, val_type = self.__account_for_union_type(val.is_required(), val.annotation)
