@@ -16,6 +16,11 @@ class TestClass2(BaseModel):
     random_env_file_number: PositiveInt
 
 
+class TestClassWithUnionType(BaseModel):
+    random_env_file_number: PositiveInt
+    app_env_file_name: Path | None
+
+
 def test_populate_pydantic_class():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST")
@@ -73,3 +78,14 @@ def test_pydantic_populate_from_env_file():
 
     # Assert
     assert resp.random_env_file_number == 10
+
+
+def test_pydantic_class_with_union_type():
+    # Setup
+    input_args = InputArgs(prefix="ATRO_TEST")
+    input_args.set_source(Path(__file__).parent / ".env")
+    resp = input_args.populate_cls(TestClassWithUnionType)
+
+    # Assert
+    assert resp.random_env_file_number == 10
+    assert resp.app_env_file_name == Path("test")

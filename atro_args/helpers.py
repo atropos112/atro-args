@@ -3,6 +3,8 @@ import json
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from types import NoneType
+from typing import get_args
 
 import yaml
 
@@ -12,6 +14,12 @@ def load_to_py_type(s, arg_type):
     if type(s) == arg_type:
         logging.debug(f"{s} is already of type {arg_type} no need to parse.")
         return s
+
+    union_args = get_args(type(s))
+    # if its a union type with NoneType, remove the None part and re-run on the first type
+    if len(union_args) > 1 and NoneType in union_args:
+        (arg_type,) = (arg for arg in union_args if arg != NoneType)
+        return load_to_py_type(s, arg_type)
 
     if arg_type in [Mapping, Sequence, list, dict]:
         if not isinstance(s, str):

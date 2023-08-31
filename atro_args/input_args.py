@@ -4,7 +4,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import is_dataclass
 from os import environ
 from pathlib import Path
-from typing import Any, TypeVar
+from types import NoneType
+from typing import Any, TypeVar, get_args
 
 from annotated_types import UpperCase
 from dotenv import load_dotenv
@@ -154,16 +155,38 @@ class InputArgs(BaseModel):
         return self.get_cls(class_type, cli_input_args=cli_input_args)
 
     # endregion
+    @staticmethod
+    def __account_for_union_type(default_required: bool, possibly_union_type: type | None) -> tuple[bool, type]:
+        required = default_required
+        arg_type = possibly_union_type
+
+        union_args: tuple[Any, ...] = get_args(possibly_union_type)
+
+        if len(union_args) > 1:
+            if not len(get_args(union_args[0])) > 1:
+                (arg_type,) = (tp for tp in union_args if tp != NoneType)
+            if NoneType in union_args:
+                required = False
+
+        if arg_type is None:
+            raise Exception("Arg type is None for at least one of the fields, this is not supported.")
+
+        return required, arg_type
 
     # region "Private" methods
     def __add_pydantic(self, pydantic_class_type: type[BaseModel]) -> None:
         for key, val in pydantic_class_type.model_fields.items():
-            self.add_arg(Arg(name=key, arg_type=val.annotation, required=val.is_required(), default=None if str(val.default) == "PydanticUndefined" else val.default))  # type: ignore
+            required, val_type = self.__account_for_union_type(val.is_required(), val.annotation)
+
+            self.add_arg(Arg(name=key, arg_type=val_type, required=required, default=None if str(val.default) == "PydanticUndefined" else val.default))  # type: ignore
+
         self.validate_args()
 
     def __add_dataclass(self, dataclass_type: type) -> None:
         for field in dataclass_type.__dataclass_fields__.values():  # type: ignore
-            self.add_arg(Arg(name=field.name, arg_type=field.type, required=False, default=field.default))
+            required, val_type = self.__account_for_union_type(True, field.type)
+
+            self.add_arg(Arg(name=field.name, arg_type=val_type, required=required, default=field.default))
 
     def __get_dataclass(self, dataclass_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
         if not is_dataclass(dataclass_type):

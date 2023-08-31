@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Any, _UnionGenericAlias  # type: ignore
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class Arg(BaseModel):
@@ -15,9 +15,10 @@ class Arg(BaseModel):
         default (Any, optional): The default value of the argument. If set to None it is assumed there is no default (will fail on required=True). Defaults to None.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str
     other_names: str | list[str] = []
-    arg_type: type = str
+    arg_type: type | _UnionGenericAlias = str
     help: str = ""
     required: bool = True
     default: Any = None
