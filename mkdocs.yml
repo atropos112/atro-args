@@ -43,8 +43,9 @@ plugins:
 
 nav:
   - Home: index.md
-  - References: references.md
+  - Usage: usage.md
   - Examples: examples.md
+  - References: references.md
 
 markdown_extensions:
   - pymdownx.highlight:
