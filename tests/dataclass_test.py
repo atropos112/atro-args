@@ -1,14 +1,6 @@
-from dataclasses import dataclass
+from classes_for_test import DataTestClass
 
 from atro_args import Arg, InputArgs
-
-
-@dataclass
-class TestClass:
-    name: str
-    surname: str
-    age: int
-    bozo: bool = False
 
 
 def test_populate_dataclass():
@@ -23,7 +15,7 @@ def test_populate_dataclass():
     cli_input_args = ["--name", "test", "--surname", "alsotest", "--age", "10", "--bad_field", "19"]
 
     # Create model
-    model: TestClass = input_args.get_cls(TestClass, cli_input_args=cli_input_args)
+    model = input_args.get_cls(DataTestClass, cli_input_args=cli_input_args)
 
     # Assert
     assert model.name == "test"
@@ -34,7 +26,7 @@ def test_populate_dataclass():
 def test_add_args_from_dataclass():
     # Setup
     input_args = InputArgs()
-    input_args.add_cls(TestClass)
+    input_args.add_cls(DataTestClass)
 
     args = input_args.args
 
@@ -45,13 +37,13 @@ def test_add_args_from_dataclass():
 def test_add_args_and_populate_using_dataclass():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST")
-    input_args.add_cls(TestClass)
+    input_args.add_cls(DataTestClass)
 
     # Mock cli input args
     cli_input_args = ["--name", "test", "--surname", "alsotest", "--age", "10", "--bozo", "True"]
 
     # Create model
-    data_model: TestClass = input_args.get_cls(TestClass, cli_input_args=cli_input_args)
+    data_model = input_args.get_cls(DataTestClass, cli_input_args=cli_input_args)
 
     # Assert
     assert data_model.name == "test"

@@ -9,7 +9,7 @@ from typing import Any, TypeVar, get_args
 
 from annotated_types import UpperCase
 from dotenv import load_dotenv
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, PrivateAttr, model_validator
 
 from atro_args.arg import Arg
 from atro_args.arg_source import ArgSource
@@ -30,6 +30,7 @@ class InputArgs(BaseModel):
     prefix: UpperCase = "ATRO_ARGS"
     args: list[Arg] = []
     sources: list[ArgSource | Path] = [ArgSource.cli_args, Path(".env"), ArgSource.envs]
+    _model: dict[str, Any] = PrivateAttr({})
 
     # region Validators
     @model_validator(mode="after")
@@ -112,7 +113,7 @@ class InputArgs(BaseModel):
             A dictionary with keys being the argument names and values being the argument values. Argument values will be of the type specified in the Arg model.
         """
 
-        model: dict[str, Any] = {arg.name: None for arg in self.args}
+        self._model: dict[str, Any] = {arg.name: None for arg in self.args}
 
         for source in self.sources:
             args = {}
@@ -131,12 +132,12 @@ class InputArgs(BaseModel):
                     case _:
                         raise Exception(f"File type '{source.suffix}' is not supported.")
 
-            self.__populate_if_empty(model, args, source.value if isinstance(source, ArgSource) else source.as_posix())
+            self.__populate_if_empty(args, source.value if isinstance(source, ArgSource) else source.as_posix())
 
-        self.__populate_if_empty(model, {arg.name: arg.default for arg in self.args}, "defaults")
-        self.__throw_if_required_not_populated(model)
+        self.__populate_if_empty({arg.name: arg.default for arg in self.args}, "defaults")
+        self.__throw_if_required_not_populated()
 
-        return model
+        return self._model
 
     def get_cls(self, class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
         """Parses the arguments and returns them as an instance of the given class with the data populated from (potentially) multiple sources.
@@ -296,11 +297,10 @@ class InputArgs(BaseModel):
     def __get_yaml_file_args(self, path: Path) -> dict[str, str]:
         return load_yaml_to_dict(path)
 
-    def __populate_if_empty(self, model: dict[str, Any], inputs: dict[str, str], source: str) -> None:
+    def __populate_if_empty(self, inputs: dict[str, str], source: str) -> None:
         for key, value in inputs.items():
-            logging.debug(f"Considering key: '{key},' value: '{value}' from '{source}'")
-
-            if key not in model:
+            logging.debug(f"Populating '{key}' from '{source}'.")
+            if key not in self._model:
                 logging.debug(f"'{key}' has not been requested as an argument, skipping.")
                 continue
 
@@ -308,20 +308,20 @@ class InputArgs(BaseModel):
                 logging.debug(f"'{key}' is not populated in '{source}'.")
                 continue
 
-            if model.get(key) is None:
+            if self._model.get(key) is None:
                 (arg,) = (arg for arg in self.args if arg.name == key)
 
                 logging.info(f"Setting '{key}' to be of value '{value}' from '{source}'")
-                model[key] = load_to_py_type(value, arg.arg_type)
+                self._model[key] = load_to_py_type(value, arg.arg_type)
 
             else:
                 logging.debug(f"'{key}' has already been set.")
 
-    def __throw_if_required_not_populated(self, model: dict[str, Any]) -> None:
+    def __throw_if_required_not_populated(self) -> None:
         missing_but_required: list[str] = []
 
         for arg in self.args:
-            if arg.required and model.get(arg.name) is None:
+            if arg.required and self._model.get(arg.name) is None:
                 missing_but_required.append(arg.name)
 
         if len(missing_but_required) > 0:
