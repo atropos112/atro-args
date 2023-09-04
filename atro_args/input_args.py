@@ -311,7 +311,7 @@ class InputArgs(BaseModel):
             if self._model.get(key) is None:
                 (arg,) = (arg for arg in self.args if arg.name == key)
 
-                logging.info(f"Setting '{key}' to be of value '{value}' from '{source}'")
+                logging.debug(f"Setting '{key}' to be of value '{value}' from '{source}'")
                 self._model[key] = load_to_py_type(value, arg.arg_type)
 
             else:
