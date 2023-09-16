@@ -8,7 +8,7 @@ class Arg(BaseModel):
 
     Attributes:
         name (str): The name of the argument. This is the key that will be used to access the value of the argument.
-        other_names (str | list[str], optional): Other names that can be used to access the value of the argument. Defaults to [].
+        other_names (list[str], optional): Other names that can be used to access the value of the argument. Defaults to [].
         arg_type (type): The type of the argument. Defaults to str. Possible values are: str, int, float, bool, list, dict, no generic typing allowed, e.g. list[str] is not allowed.
         help (str): The help text for the argument. Defaults to "".
         required (bool, optional): Whether the argument is required. Defaults to True.
@@ -17,7 +17,7 @@ class Arg(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     name: str
-    other_names: str | list[str] = []
+    other_names: list[str] = []
     arg_type: type | _UnionGenericAlias = str
     help: str = ""
     required: bool = True

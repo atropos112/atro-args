@@ -25,6 +25,9 @@ def test_populate_dataclass():
 
 def test_add_args_from_dataclass():
     # Setup
+    import sys
+
+    sys.argv
     input_args = InputArgs()
     input_args.add_cls(DataTestClass)
 

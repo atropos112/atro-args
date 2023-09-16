@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class ArgSource(Enum):
+class ArgSource(StrEnum):
     """Enum for the non-file source of an argument. This doesn't included sources that are file based.
 
     Attributes:

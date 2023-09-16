@@ -1,19 +1,18 @@
-import logging
-from argparse import ArgumentParser
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import is_dataclass
-from os import environ
 from pathlib import Path
 from types import NoneType
 from typing import Any, TypeVar, get_args
 
 from annotated_types import UpperCase
-from dotenv import load_dotenv
+from atro_utils import merge_dicts
 from pydantic import BaseModel, PrivateAttr, model_validator
 
 from atro_args.arg import Arg
+from atro_args.arg_casting import cast_dict_based_on_args
 from atro_args.arg_source import ArgSource
-from atro_args.helpers import get_duplicates, load_to_py_type, load_yaml_to_dict
+from atro_args.arg_source_loading import load_source
+from atro_args.helpers import get_duplicates, restrict_keys, throw_if_required_not_populated
 
 T = TypeVar("T")
 
@@ -30,13 +29,14 @@ class InputArgs(BaseModel):
     prefix: UpperCase = "ATRO_ARGS"
     args: list[Arg] = []
     sources: list[ArgSource | Path] = [ArgSource.cli_args, Path(".env"), ArgSource.envs]
-    _model: dict[str, Any] = PrivateAttr({})
+    _other_name_to_arg: dict[str, Arg] = PrivateAttr({})
 
     # region Validators
     @model_validator(mode="after")
     def validate_model(self) -> "InputArgs":
         self.validate_sources()
         self.validate_args()
+        self.validate_prefix()
         return self
 
     def validate_sources(self):
@@ -45,10 +45,21 @@ class InputArgs(BaseModel):
             raise ValueError("The elements of list sources must be unique. The following elements are duplicated: " + ", ".join(dupes) + ".")
 
     def validate_args(self):
-        names = [arg.name for arg in self.args]
+        names = [arg.name for arg in self.args] + list(self._other_name_to_arg.keys())
         if len(set(names)) != len(names):
             dupes = get_duplicates(names)
             raise ValueError("Can't have two or more Args with the same name parameter. The following names are duplicated: " + ", ".join(dupes) + ".")
+
+    def validate_prefix(self):
+        if self.prefix:
+            return
+
+        if ArgSource.envs in self.sources:
+            raise ValueError("If ArgSource.envs is in sources then prefix must be provided.")
+
+        for source in self.sources:
+            if isinstance(source, Path) and source.suffix == ".env":
+                raise ValueError("If a .env file is in sources then prefix must be provided.")
 
     # endregion
 
@@ -74,8 +85,12 @@ class InputArgs(BaseModel):
 
     # region Adding arguments
     def add_arg(self, arg: Arg) -> None:
-        if arg.name not in [argument.name for argument in self.args]:
-            self.args.append(arg)
+        if set(arg.other_names).intersection(set(self._other_name_to_arg.keys())):  # type: ignore
+            raise ValueError(f"Can't have two or more Args with the same name parameter. The following names are duplicated: {', '.join(set(arg.other_names).intersection(set(self._other_name_to_arg.keys())))}.")
+        for other_name in arg.other_names:
+            self._other_name_to_arg[other_name] = arg
+
+        self.args.append(arg)
         self.validate_args()
 
     def add_args(self, args: list[Arg]) -> None:
@@ -83,7 +98,7 @@ class InputArgs(BaseModel):
             self.add_arg(arg)
         self.validate_args()
 
-    def add(self, name: str, other_names: str | list[str] = [], arg_type: type = str, help: str = "", required: bool = True, default: Any = None):
+    def add(self, name: str, other_names: list[str] = [], arg_type: type = str, help: str = "", required: bool = True, default: Any = None):
         self.add_arg(Arg(name=name, other_names=other_names, arg_type=arg_type, help=help, required=required, default=default))
         self.validate_args()
 
@@ -113,31 +128,18 @@ class InputArgs(BaseModel):
             A dictionary with keys being the argument names and values being the argument values. Argument values will be of the type specified in the Arg model.
         """
 
-        self._model: dict[str, Any] = {arg.name: None for arg in self.args}
+        model: dict[str, str] = {}
 
         for source in self.sources:
-            args = {}
-            if source == ArgSource.cli_args:
-                args = self.__get_cli_args(cli_input_args)
-            elif source == ArgSource.envs:
-                args = self.__get_env_args()
-            elif isinstance(source, ArgSource):
-                raise Exception(f"Developer Error: Assumed all the ArgSources were accounted for but '{source}' wasn't.")
-            elif isinstance(source, Path):
-                match source.name.split(".")[-1]:  # source.suffix would not work here as .env would map to empty string
-                    case "env":
-                        args = self.__get_env_file_args(source)
-                    case "yaml" | "yml":
-                        args = self.__get_yaml_file_args(source)
-                    case _:
-                        raise Exception(f"File type '{source.suffix}' is not supported.")
+            args = load_source(source, self.prefix, self.args, cli_input_args)
+            model = merge_dicts(model, args, overwrite=False, current_name=source.value if isinstance(source, ArgSource) else source.as_posix(), updating_dict_name="args")
 
-            self.__populate_if_empty(args, source.value if isinstance(source, ArgSource) else source.as_posix())
+        model = restrict_keys(model, self.args)
+        typed_model = cast_dict_based_on_args(model, self.args)
+        typed_model = merge_dicts(typed_model, {arg.name: arg.default for arg in self.args}, overwrite=False, current_name="defaults", updating_dict_name="args")
+        throw_if_required_not_populated(typed_model, self.args)
 
-        self.__populate_if_empty({arg.name: arg.default for arg in self.args}, "defaults")
-        self.__throw_if_required_not_populated()
-
-        return self._model
+        return typed_model
 
     def get_cls(self, class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
         """Parses the arguments and returns them as an instance of the given class with the data populated from (potentially) multiple sources.
@@ -246,85 +248,5 @@ class InputArgs(BaseModel):
         myClass: T = cls(**output_args)
 
         return myClass
-
-    def __get_cli_args(self, cli_input_args: Sequence[str] | None = None) -> dict[str, str]:
-        parser = ArgumentParser()
-        for arg in self.args:
-            # Making some adjustments
-            other_names = ["-" + name for name in arg.other_names]
-            arg_type = arg.arg_type
-            if arg_type in [Sequence, Mapping, list, dict]:
-                # loading a json as dict or list will fail in argparse, as it will load each element char by char, bypassing that issue by loading it as a string and then converting it to the desired type
-                arg_type = str
-
-            parser.add_argument(f"--{arg.name}", *other_names, type=arg_type, help=arg.help, required=False)
-        # Using parse_known_args instead of parse_args as parse_args throws on empty input.
-        output = vars(parser.parse_known_args(cli_input_args)[0]) or {}
-
-        for name in [arg.name for arg in self.args]:
-            # Edge case where argument has "-" in the name argparse would return this as _ instead.
-            if "-" in name and name.replace("-", "_") in output.keys() and name not in output.keys():
-                output[name] = output.pop(name.replace("-", "_"))
-
-        return output
-
-    def __get_env_args(self) -> dict[str, str]:
-        envs: dict[str, str] = {}
-        for arg in self.args:
-            env = environ.get(f"{self.prefix}_{arg.name}".upper())
-            if env is not None:
-                envs[arg.name] = env
-        return envs
-
-    def __get_env_file_args(self, path: Path) -> dict[str, str]:
-        # Remove any existing envs
-        # Load envs from file
-        # Get envs
-        # Restore envs from before
-        # Return envs
-
-        copy_current_envs = environ.copy()
-
-        environ.clear()
-        load_dotenv(dotenv_path=path)
-        envs = self.__get_env_args()
-        environ.clear()
-
-        environ.update(copy_current_envs)
-
-        return envs
-
-    def __get_yaml_file_args(self, path: Path) -> dict[str, str]:
-        return load_yaml_to_dict(path)
-
-    def __populate_if_empty(self, inputs: dict[str, str], source: str) -> None:
-        for key, value in inputs.items():
-            logging.debug(f"Populating '{key}' from '{source}'.")
-            if key not in self._model:
-                logging.debug(f"'{key}' has not been requested as an argument, skipping.")
-                continue
-
-            if value is None:
-                logging.debug(f"'{key}' is not populated in '{source}'.")
-                continue
-
-            if self._model.get(key) is None:
-                (arg,) = (arg for arg in self.args if arg.name == key)
-
-                logging.debug(f"Setting '{key}' to be of value '{value}' from '{source}'")
-                self._model[key] = load_to_py_type(value, arg.arg_type)
-
-            else:
-                logging.debug(f"'{key}' has already been set.")
-
-    def __throw_if_required_not_populated(self) -> None:
-        missing_but_required: list[str] = []
-
-        for arg in self.args:
-            if arg.required and self._model.get(arg.name) is None:
-                missing_but_required.append(arg.name)
-
-        if len(missing_but_required) > 0:
-            raise Exception(f"Missing required arguments: '{', '.join(missing_but_required)}'")
 
     # endregion

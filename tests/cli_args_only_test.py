@@ -1,6 +1,7 @@
 import pytest
 
 from atro_args import Arg, InputArgs
+from atro_args.arg_source_loading import get_cli_args
 
 
 @pytest.mark.parametrize("provided", [True, False])
@@ -67,7 +68,7 @@ def test_wrong_type():
     cli_input_args = ["--random_number", "test"]
 
     # Create model
-    with pytest.raises(SystemExit):
+    with pytest.raises(ValueError):
         input_args.get_dict(cli_input_args=cli_input_args)
 
 
@@ -100,3 +101,58 @@ def test_one_required_one_optional(required_provided: bool, optional_provided: b
     else:
         with pytest.raises(Exception):
             input_args.get_dict(cli_input_args=cli_input_args)
+
+
+def test_get_cli_args_with_viable_inputs():
+    cli_input_args = [
+        "--arg1",
+        "value1",
+        "--arg2",
+        "value2",
+        "-a",
+        "value3",
+        "--arg4=value4",
+        "one more val",  # this should be added to arg4, spaces are allowed in values
+        "-b=value5 value6",
+    ]
+    expected = {
+        "arg1": "value1",
+        "arg2": "value2",
+        "a": "value3",
+        "arg4": "value4 one more val",
+        "b": "value5 value6",
+    }
+
+    diff = set(get_cli_args(cli_input_args).items()) ^ set(expected.items())
+
+    assert not diff
+
+
+def test_get_cli_args_with_no_inputs():
+    assert not get_cli_args([])
+
+
+def test_get_cli_args_when_no_args_passed():
+    assert not get_cli_args(["arg1", "value1"])
+
+
+def test_get_cli_args_with_bad_inputs():
+    with pytest.raises(ValueError):
+        get_cli_args(["arg1", "value1", "--arg2", "value2"])
+
+    with pytest.raises(ValueError):
+        get_cli_args(["---arg1", "value1"])
+
+
+def test_get_cli_args_with_double_quotes():
+    cli_input_args = ["--arg1", '"value1"', "--arg2", "value2", '-a="value3"']  # double quotes but no =  # no quotes  # double quotes and =
+
+    expected = {
+        "arg1": "value1",
+        "arg2": "value2",
+        "a": "value3",
+    }
+
+    diff = set(get_cli_args(cli_input_args).items()) ^ set(expected.items())
+
+    assert not diff
