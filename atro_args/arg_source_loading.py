@@ -153,7 +153,7 @@ def get_yaml_file_args(path: Path) -> dict[str, str]:
 def get_all_prefixed_env_args(prefix: str) -> dict[str, str]:
     envs = environ.copy()
     prefix = prefix.upper()
-    return {key[len(prefix) + 1:].lower(): value for key, value in envs.items() if key.startswith(prefix)}
+    return {key[len(prefix) + 1 :].lower(): value for key, value in envs.items() if key.startswith(prefix)}
 
 
 def get_env_args(prefix: str, args: Sequence[Arg]):
