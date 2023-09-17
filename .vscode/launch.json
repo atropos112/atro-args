@@ -1,0 +1,31 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "BunchOfCliArgs",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "args": [
+        "--name=Jellyfin",
+        "--namespace=media",
+        "--app_path=${workspaceFolder}/tests/example_apps/media/jellyfin",
+        "--values_file=values.atro.yaml",
+        "--spaced",
+        "blahty",
+        "blahty",
+        "blahty",
+        "--spacedoncemore=blahty",
+        "blahty",
+        "--noequals",
+        "hi"
+        // "--withquotes", "'hi'", // works if i cli it but using the debugger it doesn't
+      ]
+    }
+  ]
+}

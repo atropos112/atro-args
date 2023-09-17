@@ -1,18 +1,18 @@
 from collections.abc import Sequence
 from dataclasses import is_dataclass
 from pathlib import Path
-from types import NoneType
-from typing import Any, TypeVar, get_args
+from typing import Any, TypeVar
 
 from annotated_types import UpperCase
 from atro_utils import merge_dicts
 from pydantic import BaseModel, PrivateAttr, model_validator
 
-from atro_args.arg import Arg
 from atro_args.arg_casting import cast_dict_based_on_args
-from atro_args.arg_source import ArgSource
-from atro_args.arg_source_loading import load_source
+from atro_args.class_populating import add_dataclass, add_pydantic, get_dataclass, get_pydantic
+from atro_args.entities.arg import Arg
+from atro_args.entities.arg_source import ArgSource
 from atro_args.helpers import get_duplicates, restrict_keys, throw_if_required_not_populated
+from atro_args.source_loading import load_source
 
 T = TypeVar("T")
 
@@ -28,7 +28,7 @@ class InputArgs(BaseModel):
 
     prefix: UpperCase = "ATRO_ARGS"
     args: list[Arg] = []
-    sources: list[ArgSource | Path] = [ArgSource.cli_args, Path(".env"), ArgSource.envs]
+    sources: list[ArgSource | Path] = [ArgSource.cli, Path(".env"), ArgSource.envs]
     _other_name_to_arg: dict[str, Arg] = PrivateAttr({})
 
     # region Validators
@@ -64,21 +64,24 @@ class InputArgs(BaseModel):
     # endregion
 
     # region Including sources
-    def set_sources(self, sources: list[ArgSource | Path]) -> None:
+    def set_sources(self, sources: list[ArgSource | Path | str]) -> None:
         self.sources = []
         self.include_sources(sources)
 
-    def set_source(self, source: ArgSource | Path) -> None:
+    def set_source(self, source: ArgSource | Path | str) -> None:
         self.set_sources([source])
 
-    def include_sources(self, sources: list[ArgSource | Path]) -> None:
-        self.sources.extend(sources)
+    def include_sources(self, sources: list[ArgSource | Path | str]) -> None:
+        for source in sources:
+            self.include_source(source)
+
+    def include_source(self, source: ArgSource | Path | str) -> None:
+        if isinstance(source, str) and not isinstance(source, ArgSource):
+            source = Path(source)
+        self.sources.append(source)
         self.validate_sources()
 
-    def include_source(self, source: ArgSource | Path) -> None:
-        self.include_sources([source])
-
-    def include(self, source: ArgSource | Path) -> None:
+    def include(self, source: ArgSource | Path | str) -> None:
         self.include_source(source)
 
     # endregion
@@ -93,10 +96,9 @@ class InputArgs(BaseModel):
         self.args.append(arg)
         self.validate_args()
 
-    def add_args(self, args: list[Arg]) -> None:
+    def add_args(self, args: Sequence[Arg]) -> None:
         for arg in args:
             self.add_arg(arg)
-        self.validate_args()
 
     def add(self, name: str, other_names: list[str] = [], arg_type: type = str, help: str = "", required: bool = True, default: Any = None):
         self.add_arg(Arg(name=name, other_names=other_names, arg_type=arg_type, help=help, required=required, default=default))
@@ -104,13 +106,13 @@ class InputArgs(BaseModel):
 
     def add_cls(self, class_type: type) -> None:
         if is_dataclass(class_type):
-            self.__add_dataclass(class_type)
+            self.add_args(add_dataclass(class_type))
         elif issubclass(class_type, BaseModel):
-            self.__add_pydantic(class_type)
+            self.add_args(add_pydantic(class_type))
 
     # endregion
 
-    # region Get data back
+    # region Get data
     def get_dict(self, cli_input_args: Sequence[str] | None = None) -> dict[str, Any]:
         """Parses the arguments and returns them as a dictionary from (potentially) multiple sources.
 
@@ -159,16 +161,18 @@ class InputArgs(BaseModel):
         Returns:
             Instance of the class provided with the fielids populated from potentially multiple sources.
         """
+        typed_dict = self.get_dict(cli_input_args=cli_input_args)
+
         if is_dataclass(class_type):
-            return self.__get_dataclass(class_type, cli_input_args=cli_input_args)  # type: ignore
+            return get_dataclass(typed_dict, class_type, cli_input_args=cli_input_args)
         elif issubclass(class_type, BaseModel):
-            return self.__get_pydantic(class_type, cli_input_args=cli_input_args)  # type: ignore
+            return get_pydantic(typed_dict, class_type, cli_input_args=cli_input_args)
         else:
             raise Exception(f"Class type '{class_type}' is not supported.")
 
     # endregion
 
-    # region popluate
+    # region Populate data
 
     def populate_cls(self, class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
         """Parses the arguments and returns them as an instance of the given class with the data populated from (potentially) multiple sources.
@@ -189,64 +193,5 @@ class InputArgs(BaseModel):
         """
         self.add_cls(class_type)
         return self.get_cls(class_type, cli_input_args=cli_input_args)
-
-    # endregion
-
-    # region "Private" methods
-
-    @staticmethod
-    def __account_for_union_type(default_required: bool, possibly_union_type: type | None) -> tuple[bool, type]:
-        required = default_required
-        arg_type = possibly_union_type
-
-        union_args: tuple[Any, ...] = get_args(possibly_union_type)
-
-        if len(union_args) > 1:
-            if not len(get_args(union_args[0])) > 1:
-                (arg_type,) = (tp for tp in union_args if tp != NoneType)
-            if NoneType in union_args:
-                required = False
-
-        if arg_type is None:
-            raise Exception("Arg type is None for at least one of the fields, this is not supported.")
-
-        return required, arg_type
-
-    def __add_pydantic(self, pydantic_class_type: type[BaseModel]) -> None:
-        for key, val in pydantic_class_type.model_fields.items():
-            required, val_type = self.__account_for_union_type(val.is_required(), val.annotation)
-
-            self.add_arg(Arg(name=key, arg_type=val_type, required=required, default=None if str(val.default) == "PydanticUndefined" else val.default))  # type: ignore
-
-        self.validate_args()
-
-    def __add_dataclass(self, dataclass_type: type) -> None:
-        for field in dataclass_type.__dataclass_fields__.values():  # type: ignore
-            required, val_type = self.__account_for_union_type(True, field.type)
-
-            self.add_arg(Arg(name=field.name, arg_type=val_type, required=required, default=field.default))
-
-    def __get_dataclass(self, dataclass_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
-        if not is_dataclass(dataclass_type):
-            raise Exception(f"Developer error: '{dataclass_type}' is not a dataclass and so it shouldn't call __get_dataclass.")
-        model_args_required = dataclass_type.__dataclass_fields__
-
-        return self.__get_cls_setup(dataclass_type, model_args_required, cli_input_args=cli_input_args)  # type: ignore
-
-    def __get_pydantic(self, pydantic_class_type: type[T], cli_input_args: Sequence[str] | None = None) -> T:
-        if not issubclass(pydantic_class_type, BaseModel):
-            raise Exception(f"Developer error: '{pydantic_class_type}' is not a subclass of 'BaseModel' and so it shouldn't call __get_pydantic.")
-        model_args_required = pydantic_class_type.model_fields  # type: ignore
-
-        return self.__get_cls_setup(pydantic_class_type, model_args_required, cli_input_args=cli_input_args)
-
-    def __get_cls_setup(self, cls: type[T], model_args_required: dict, cli_input_args: Sequence[str] | None = None) -> T:
-        args = self.get_dict(cli_input_args=cli_input_args)
-        output_args = {arg: args[arg] for arg in args if arg in model_args_required.keys()}
-
-        # Note the types might be incorret if user error at which point Pydantic will throw an exception.
-        myClass: T = cls(**output_args)
-
-        return myClass
 
     # endregion

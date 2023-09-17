@@ -5,11 +5,12 @@ from collections.abc import Mapping, Sequence
 from types import NoneType
 from typing import Any, TypeVar, get_args
 
-from atro_args.arg import Arg
+from atro_args.entities.arg import Arg
 
 T = TypeVar("T")
 
 
+# region casting
 def cast_to(s, arg_type: type[T]) -> T:
     # If type is correct return as is
     if type(s) == arg_type:
@@ -40,9 +41,14 @@ def cast_to(s, arg_type: type[T]) -> T:
                     logging.debug(f"Loaded {s} using ast, checking if type is {arg_type} if so returning.")
                     return ast_loaded
             except (ValueError, SyntaxError):
-                raise ValueError(f"Could not load {s} as {arg_type}.")
+                raise TypeError(f"Could not load {s} as {arg_type}.")
 
-    return arg_type(s)
+    try:
+        output = arg_type(s)
+    except (ValueError, SyntaxError):
+        raise TypeError(f"Could not load {s} as {arg_type}.")
+
+    return output
 
 
 def cast_dict_based_on_args(model: dict[str, str], args: Sequence[Arg]) -> dict[str, Any]:
@@ -50,3 +56,6 @@ def cast_dict_based_on_args(model: dict[str, str], args: Sequence[Arg]) -> dict[
         if arg.name in model:
             model[arg.name] = cast_to(model[arg.name], arg.arg_type)
     return model
+
+
+#  endregion

@@ -57,7 +57,7 @@ def test_add_args_and_populate_using_pydantic():
 def test_pydantic_populate_from_env_file():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST")
-    input_args.set_source(Path(__file__).parent / ".env")
+    input_args.set_source(Path(__file__).parent / "data_test_files" / ".env")
     resp = input_args.populate_cls(PydanticTestClass2)
 
     # Assert
@@ -67,7 +67,7 @@ def test_pydantic_populate_from_env_file():
 def test_pydantic_class_with_union_type():
     # Setup
     input_args = InputArgs(prefix="ATRO_TEST")
-    input_args.set_source(Path(__file__).parent / ".env")
+    input_args.set_source(Path(__file__).parent / "data_test_files" / ".env")
     resp = input_args.populate_cls(PydanticTestClassWithUnionType)
 
     # Assert

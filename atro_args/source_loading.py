@@ -1,18 +1,22 @@
+import configparser
+import json
+import tomllib
 from collections.abc import Sequence
 from os import environ
 from pathlib import Path
 from sys import argv
+from typing import Any
 
 import yaml
 from dotenv import load_dotenv
 
-from atro_args.arg import Arg
-from atro_args.arg_source import ArgSource
+from atro_args.entities.arg import Arg
+from atro_args.entities.arg_source import ArgSource
 
 # region loader
 
 
-def load_source(source: ArgSource | Path, prefix: str, args: Sequence[Arg], cli_input_args: Sequence[str] | None = None) -> dict[str, str]:
+def load_source(source: ArgSource | Path, prefix: str, args: Sequence[Arg], cli_input_args: Sequence[str] | None = None) -> dict[str, Any]:
     """Loads the arguments from the source provided. The source can be a file or a source of arguments like CLI or ENVs.
 
     Args:
@@ -29,19 +33,26 @@ def load_source(source: ArgSource | Path, prefix: str, args: Sequence[Arg], cli_
     """
 
     output = {}
+    print(source)
     match source:
-        case ArgSource.cli_args:
+        case ArgSource.cli:
             output = get_cli_args(cli_input_args)
         case ArgSource.envs:
             output = get_env_args(prefix, args)
         case Path:
             match source.name.split(".")[-1]:  # source.suffix would not work here as .env would map to empty string
-                case "env":
+                case "env" | "":
                     output = get_env_file_args(prefix, args, source)
                 case "yaml" | "yml":
                     output = get_yaml_file_args(source)
+                case "json":
+                    output = get_json_file_args(source)
+                case "toml":
+                    output = get_toml_file_args(source)
+                case "ini":
+                    output = get_ini_file_args(source, prefix)
                 case _:
-                    raise Exception(f"File type '{source.suffix}' is not supported.")
+                    raise Exception(f"Tried loading {source} of type {type(source)} but failed. File type '{source.suffix}' is not supported.")
 
     return output
 
@@ -73,7 +84,6 @@ def get_cli_args(cli_input_args: Sequence[str] | None = None) -> dict[str, str]:
     cli_inputs = cli_input_args if cli_input_args != None else argv[1:]  # cli_input_args or argv[1:] is not the same here as empty list means no inputs were provided via cli_input_args where as if its None we fall back on argv[1:] as cli_input_args was not provided.
 
     cli_inputs = split_by_equals(cli_inputs)
-    cli_inputs = account_for_quotes(cli_inputs)
     output: dict[str, str] = {}
 
     if not [cli_input for cli_input in cli_inputs if cli_input.startswith("-")]:
@@ -106,43 +116,12 @@ def split_by_equals(cli_input_args: Sequence[str]) -> Sequence[str]:
     return cli_inputs
 
 
-def account_for_quotes(cli_input_args: Sequence[str]) -> Sequence[str]:
-    cli_inputs: list[str] = []
-    for i, val in enumerate(cli_input_args):
-        if wrapped_by(val, '"') or wrapped_by(val, "'"):
-            if i == 0:
-                raise ValueError(f"Argument {val} is wrapped by double quotes but is the first argument.")
-            if not cli_input_args[i - 1].startswith("-") or (i + 1 < len(cli_input_args) and not cli_input_args[i + 1].startswith("-")):
-                raise ValueError(f"Argument {val} is wrapped by double but the part before or after is not an argument.")
-                # no need to check if there is --- as that is checked when loading args later
-            cli_inputs.append(strip_first_and_last(val))
-        else:
-            cli_inputs.append(val)
-
-    for cli_input in cli_input_args:
-        if cli_input.startswith('"') and cli_input.endswith('"'):
-            cli_inputs.append(cli_input[1:-1])
-        else:
-            cli_inputs.append(cli_input)
-    return cli_inputs
-
-
 def wrapped_by(s: str, wrapper: str) -> bool:
     return s.startswith(wrapper) and s.endswith(wrapper)
 
 
 def strip_first_and_last(s: str) -> str:
     return s[1:-1]
-
-
-# endregion
-
-# region YAML file
-
-
-def get_yaml_file_args(path: Path) -> dict[str, str]:
-    with open(path) as file:
-        return yaml.safe_load(file)
 
 
 # endregion
@@ -195,6 +174,51 @@ def get_env_file_args(prefix: str, args: Sequence[Arg], path: Path) -> dict[str,
     environ.update(copy_current_envs)
 
     return envs
+
+
+# endregion
+
+# region YAML file
+
+
+def get_yaml_file_args(path: Path) -> dict[str, Any]:
+    with open(path) as file:
+        return yaml.safe_load(file)
+
+
+# endregion
+
+# region JSON file
+
+
+def get_json_file_args(path: Path) -> dict[str, Any]:
+    with open(path) as file:
+        return json.load(file)
+
+
+# endregion
+
+# region TOML file
+
+
+def get_toml_file_args(path: Path) -> dict[str, Any]:
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
+# endregion
+
+# region INI file
+
+
+def get_ini_file_args(source: Path, prefix: str) -> dict[str, str]:
+    config = configparser.ConfigParser()
+    config.read(source)
+
+    cfgs = dict(config)[prefix]
+    output = {i: cfgs[i] for i in cfgs}
+
+    return output
 
 
 # endregion

@@ -2,12 +2,9 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from atro_args.arg import Arg
+from atro_args.entities.arg import Arg
 
-# def merge_dicts(dict1: dict, dict2: dict) -> dict:
-#     result = dict1.copy()
-#     result.update(dict2)s
-#     return result
+# region helpers
 
 
 def get_duplicates(lst: list) -> list:
@@ -34,4 +31,7 @@ def throw_if_required_not_populated(d: dict[str, Any], args: Sequence[Arg]) -> N
             missing_but_required.append(arg.name)
 
     if len(missing_but_required) > 0:
-        raise Exception(f"Missing required arguments: '{', '.join(missing_but_required)}'")
+        raise KeyError(f"Missing required arguments: '{', '.join(missing_but_required)}'")
+
+
+# endregion
