@@ -1,3 +1,5 @@
 # References
 
-::: atro_args.arg
+::: arg
+    options:
+        custom_templates: "atro_args/entities/"
