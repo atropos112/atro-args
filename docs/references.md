@@ -1,3 +1,3 @@
 # References
 
-::: atro_args.entities.arg.arg
+::: atro_args.arg
