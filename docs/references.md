@@ -1,5 +1,5 @@
 # References
 
-::: atro_args.arg
-::: atro_args.arg_source
-::: atro_args.input_args
+::: atro_args.entities.arg
+::: atro_args.entities.arg_source
+::: atro_args.entities.input_args
