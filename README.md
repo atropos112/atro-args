@@ -28,3 +28,4 @@ The following model will be a dictionary `dict` which will contain both `app_nam
 <!--intro-end-->
 
 For more examples and more explanations please refer to the [documentation](https://args.atro.xyz/).
+
