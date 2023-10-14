@@ -23,6 +23,7 @@ input_args.add_arg(Arg(name="app_namespace", arg_type=str, help="App name", requ
 model = input_args.get_dict()
 ```
 
+
 The following model will be a dictionary `dict` which will contain both `app_name` and `app_namespace` as keys with their respective values.
 
 <!--intro-end-->
