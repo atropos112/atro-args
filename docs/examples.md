@@ -113,5 +113,21 @@ model = input_args.get_dict()
 assert model.get("app_yaml_file_name") == "test"
 ```
 
+## Populate class instance
+We easily can populate a pydantic BaseModel
+
+### Populate AppSettings
+To populate pydantic BaseClass with loaded parameters
+```python
+class Settings(BaseModel):
+    NAME: str
+    HOST: str
+    PORT: int
+    OPTIONAL_PARAMETER: str = "DEFAULT"
+    NULLABLE_PARAMETER: Optional[str]
+
+app_settings = InputArgs(prefix="MYPREFIX").populate_cls(Settings, cli_args)
+```
+
 !!! info "Work in progress"
     In the future the intention is to use `pyyaml` and `json` to load data from yamls and jsons on users behalf along with all the other sources of input. Currently json is not supported and yaml is in its early stages of support.
